@@ -12,6 +12,7 @@ import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepositor
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.security.JwtProvider;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class AuthService {
@@ -147,6 +149,32 @@ public class AuthService {
      */
     public void logout(Long userId) {
         refreshTokenStore.delete(userId);
+    }
+
+    /**
+     * 회원 탈퇴. 비밀번호를 다시 확인한 뒤 users 행을 지운다.
+     * 프로필·기록·아이템·친구·메시지·우편·제작 맵은 DB의 ON DELETE CASCADE로 함께 지워지고,
+     * 신고 기록은 ON DELETE SET NULL로 남는다.
+     *
+     * @throws BusinessException INVALID_CREDENTIALS(비밀번호 불일치), UNAUTHORIZED(이미 없는 계정)
+     */
+    @Transactional
+    public void withdraw(Long userId, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        userRepository.delete(user);
+        userRepository.flush();
+
+        // Redis 삭제가 실패해도 탈퇴는 진행한다. 남은 Refresh Token은 재발급 시 계정이 없어서 거부된다.
+        try {
+            refreshTokenStore.delete(userId);
+        } catch (RuntimeException e) {
+            log.warn("탈퇴 후 Refresh Token 삭제 실패: userId={}", userId, e);
+        }
     }
 
     /** 이메일은 앞뒤 공백을 지우고 소문자로 저장·비교한다 */

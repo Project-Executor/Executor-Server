@@ -221,6 +221,44 @@ class AuthServiceTest {
         verify(refreshTokenStore).delete(5L);
     }
 
+    // ---------- 탈퇴 ----------
+
+    @Test
+    void 비밀번호가_맞으면_계정을_지우고_Refresh_Token도_지운다() {
+        User user = existingUser(5L, "executor@example.com", "password123!");
+
+        authService.withdraw(5L, "password123!");
+
+        verify(userRepository).delete(user);
+        verify(refreshTokenStore).delete(5L);
+    }
+
+    @Test
+    void 탈퇴할_때_비밀번호가_틀리면_INVALID_CREDENTIALS이고_아무것도_지우지_않는다() {
+        existingUser(5L, "executor@example.com", "password123!");
+
+        assertErrorCode(() -> authService.withdraw(5L, "wrong-password"), ErrorCode.INVALID_CREDENTIALS);
+        verify(userRepository, never()).delete(any());
+        verify(refreshTokenStore, never()).delete(any());
+    }
+
+    @Test
+    void 이미_없는_계정이면_UNAUTHORIZED() {
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertErrorCode(() -> authService.withdraw(5L, "password123!"), ErrorCode.UNAUTHORIZED);
+    }
+
+    @Test
+    void Redis_삭제가_실패해도_탈퇴는_진행된다() {
+        User user = existingUser(5L, "executor@example.com", "password123!");
+        doThrow(new RuntimeException("redis down")).when(refreshTokenStore).delete(5L);
+
+        authService.withdraw(5L, "password123!");
+
+        verify(userRepository).delete(user);
+    }
+
     private User existingUser(Long id, String email, String rawPassword) {
         User user = new User(email, passwordEncoder.encode(rawPassword));
         ReflectionTestUtils.setField(user, "id", id);
