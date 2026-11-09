@@ -5,7 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface UserStageRepository extends JpaRepository<UserStage, Long> {
+
+    /** 사용자의 공식 스테이지 기록 전체 */
+    @Query("""
+            select us from UserStage us join us.stage s
+            where us.user.id = :userId and s.creator is null
+            """)
+    List<UserStage> findAllOfficialByUserId(@Param("userId") Long userId);
 
     /**
      * 공식 스테이지 기준 클리어 수와 별 개수.
