@@ -1,5 +1,8 @@
 package com.seyoung5309.executorserver.global.config;
 
+import com.seyoung5309.executorserver.global.security.LoginUser;
+import org.springdoc.core.utils.SpringDocUtils;
+
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -16,6 +19,11 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
 
     private static final String BEARER = "bearerAuth";
+
+    static {
+        // @LoginUser 파라미터는 토큰에서 자동으로 채워지므로 Swagger 입력 칸에서 숨긴다
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(LoginUser.class);
+    }
 
     @Bean
     public OpenAPI openAPI() {
