@@ -1,5 +1,10 @@
 package com.seyoung5309.executorserver.global.config;
 
+import com.seyoung5309.executorserver.global.security.JwtAuthenticationFilter;
+import com.seyoung5309.executorserver.global.security.JwtProperties;
+import com.seyoung5309.executorserver.global.security.JwtProvider;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,14 +13,19 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * 기본 보안 설정 (Day 1).
- * JWT 필터, 401/403 응답 처리, 권한별 URL 규칙은 Day 2(인증)에서 추가한다.
+ * 보안 설정.
+ * 세션 없이 JWT(Access Token)로 인증한다. 401/403 JSON 응답 처리는 다음 작업에서 추가한다.
  */
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(JwtProperties.class)
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtProvider jwtProvider;
 
     private static final String[] PUBLIC_URLS = {
             "/swagger-ui/**",
@@ -36,7 +46,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
+                // @Component로 등록하면 서블릿 필터로도 한 번 더 등록되므로 여기서 직접 생성한다
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
