@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // /api/auth/** 중 로그아웃만은 로그인이 필요하다 (위에서부터 먼저 맞는 규칙이 적용됨)
+                        .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

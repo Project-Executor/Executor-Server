@@ -1,7 +1,10 @@
 package com.seyoung5309.executorserver.domain.auth.service;
 
+import com.seyoung5309.executorserver.domain.auth.dto.LoginRequest;
+import com.seyoung5309.executorserver.domain.auth.dto.LoginResponse;
 import com.seyoung5309.executorserver.domain.auth.dto.SignupRequest;
 import com.seyoung5309.executorserver.domain.auth.dto.SignupResponse;
+import com.seyoung5309.executorserver.domain.auth.dto.TokenResponse;
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
 import com.seyoung5309.executorserver.domain.auth.entity.User;
 import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
@@ -9,6 +12,8 @@ import com.seyoung5309.executorserver.domain.profile.entity.Profile;
 import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
+import com.seyoung5309.executorserver.global.security.JwtProperties;
+import com.seyoung5309.executorserver.global.security.JwtProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -18,24 +23,34 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.time.Duration;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class AuthServiceTest {
 
+    private static final String SECRET = "dGVzdC1vbmx5LWp3dC1zZWNyZXQta2V5LWZvci1leGVjdXRvci1zZXJ2ZXItdGVzdHM=";
+
     private UserRepository userRepository;
     private ProfileRepository profileRepository;
+    private RefreshTokenStore refreshTokenStore;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final JwtProvider jwtProvider = new JwtProvider(new JwtProperties(SECRET, 1800, 1_209_600));
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         profileRepository = mock(ProfileRepository.class);
-        authService = new AuthService(userRepository, profileRepository, passwordEncoder);
+        refreshTokenStore = mock(RefreshTokenStore.class);
+        authService = new AuthService(userRepository, profileRepository, passwordEncoder, jwtProvider, refreshTokenStore);
 
         // 저장하면 DB가 ID를 채워주는 것처럼 흉내낸다
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
@@ -112,6 +127,106 @@ class AuthServiceTest {
 
         assertThat(authService.isEmailAvailable("  EXECUTOR@example.com ")).isFalse();
         assertThat(authService.isEmailAvailable("new@example.com")).isTrue();
+    }
+
+    // ---------- 로그인 ----------
+
+    @Test
+    void 로그인하면_두_토큰을_발급하고_Refresh_Token을_14일_TTL로_저장한다() {
+        User user = existingUser(5L, "executor@example.com", "password123!");
+        Profile profile = new Profile(user, "debugger");
+        when(profileRepository.findById(5L)).thenReturn(Optional.of(profile));
+
+        LoginResponse response = authService.login(new LoginRequest(" EXECUTOR@example.com", "password123!"));
+
+        assertThat(jwtProvider.parseAccessToken(response.accessToken()).userId()).isEqualTo(5L);
+        assertThat(jwtProvider.parseRefreshToken(response.refreshToken())).isEqualTo(5L);
+        assertThat(response.accessTokenExpiresIn()).isEqualTo(1800);
+        assertThat(response.user()).isEqualTo(new LoginResponse.LoginUserInfo(5L, "debugger", Role.USER, false));
+        verify(refreshTokenStore).save(5L, response.refreshToken(), Duration.ofDays(14));
+    }
+
+    @Test
+    void 집행자_이름을_입력했으면_hasCharacterName이_true() {
+        User user = existingUser(5L, "executor@example.com", "password123!");
+        Profile profile = new Profile(user, "debugger");
+        ReflectionTestUtils.setField(profile, "characterName", "오집행");
+        when(profileRepository.findById(5L)).thenReturn(Optional.of(profile));
+
+        LoginResponse response = authService.login(new LoginRequest("executor@example.com", "password123!"));
+
+        assertThat(response.user().hasCharacterName()).isTrue();
+    }
+
+    @Test
+    void 비밀번호가_틀리면_INVALID_CREDENTIALS() {
+        existingUser(5L, "executor@example.com", "password123!");
+
+        assertErrorCode(() -> authService.login(new LoginRequest("executor@example.com", "wrong-password")),
+                ErrorCode.INVALID_CREDENTIALS);
+        verify(refreshTokenStore, never()).save(any(), any(), any());
+    }
+
+    @Test
+    void 없는_이메일도_같은_INVALID_CREDENTIALS() {
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        assertErrorCode(() -> authService.login(new LoginRequest("nobody@example.com", "password123!")),
+                ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    // ---------- 재발급 ----------
+
+    @Test
+    void 재발급하면_저장된_Refresh_Token을_새_것으로_바꾸고_두_토큰을_돌려준다() {
+        existingUser(5L, "executor@example.com", "password123!");
+        String oldRefresh = jwtProvider.createRefreshToken(5L);
+        when(refreshTokenStore.rotate(eq(5L), eq(oldRefresh), anyString(), eq(Duration.ofDays(14)))).thenReturn(true);
+
+        TokenResponse response = authService.reissue(oldRefresh);
+
+        assertThat(response.refreshToken()).isNotEqualTo(oldRefresh);
+        assertThat(jwtProvider.parseAccessToken(response.accessToken()).userId()).isEqualTo(5L);
+        verify(refreshTokenStore).rotate(5L, oldRefresh, response.refreshToken(), Duration.ofDays(14));
+    }
+
+    @Test
+    void 이미_사용했거나_로그아웃한_Refresh_Token이면_INVALID_REFRESH_TOKEN() {
+        existingUser(5L, "executor@example.com", "password123!");
+        String usedRefresh = jwtProvider.createRefreshToken(5L);
+        when(refreshTokenStore.rotate(anyLong(), anyString(), anyString(), any())).thenReturn(false);
+
+        assertErrorCode(() -> authService.reissue(usedRefresh), ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void 탈퇴한_계정의_Refresh_Token이면_INVALID_REFRESH_TOKEN() {
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertErrorCode(() -> authService.reissue(jwtProvider.createRefreshToken(5L)), ErrorCode.INVALID_REFRESH_TOKEN);
+        verify(refreshTokenStore, never()).rotate(anyLong(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void Access_Token으로_재발급하면_INVALID_REFRESH_TOKEN() {
+        String access = jwtProvider.createAccessToken(5L, Role.USER);
+
+        assertErrorCode(() -> authService.reissue(access), ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void 로그아웃하면_Refresh_Token을_지운다() {
+        authService.logout(5L);
+
+        verify(refreshTokenStore).delete(5L);
+    }
+
+    private User existingUser(Long id, String email, String rawPassword) {
+        User user = new User(email, passwordEncoder.encode(rawPassword));
+        ReflectionTestUtils.setField(user, "id", id);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        return user;
     }
 
     private DataIntegrityViolationException uniqueViolation(String constraint) {
