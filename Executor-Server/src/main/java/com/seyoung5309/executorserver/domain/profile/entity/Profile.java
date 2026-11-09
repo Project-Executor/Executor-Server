@@ -49,4 +49,36 @@ public class Profile {
         this.nickname = nickname;
         this.coin = 0;
     }
+
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void changeCharacterName(String characterName) {
+        this.characterName = characterName;
+    }
+
+    /** null이면 자기소개를 지운다 */
+    public void changeComment(String comment) {
+        this.comment = comment;
+    }
+
+    /** null이면 기본 스킨으로 돌아간다. 보유 여부·종류 검사는 서비스에서 한다. */
+    public void equipSkin(Item skin) {
+        this.equippedSkin = skin;
+    }
+
+    /** null이면 기본 테마로 돌아간다. 보유 여부·종류 검사는 서비스에서 한다. */
+    public void equipTheme(Item theme) {
+        this.equippedTheme = theme;
+    }
+
+    /** 장착 스킨 ID. 프록시를 초기화하지 않고 ID만 꺼낸다. */
+    public Long getEquippedSkinId() {
+        return equippedSkin == null ? null : equippedSkin.getId();
+    }
+
+    public Long getEquippedThemeId() {
+        return equippedTheme == null ? null : equippedTheme.getId();
+    }
 }
