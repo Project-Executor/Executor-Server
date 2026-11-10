@@ -53,3 +53,9 @@ tasks.named('test') {
 tasks.named('jar') {
     enabled = false
 }
+
+// 배포 시작 명령에서 버전과 무관하게 같은 경로로 실행할 수 있도록 jar 이름을 고정한다.
+// (Railway Start Command: java -jar build/libs/executor-server.jar)
+tasks.named('bootJar') {
+    archiveFileName = 'executor-server.jar'
+}
