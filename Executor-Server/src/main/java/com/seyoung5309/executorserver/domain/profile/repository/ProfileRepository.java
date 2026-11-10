@@ -20,6 +20,15 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
     @Query("update Profile p set p.coin = p.coin + :amount where p.userId = :userId")
     int addCoin(@Param("userId") Long userId, @Param("amount") int amount);
 
+    /**
+     * 코인이 충분할 때만 뺀다 (coin >= amount 조건부 UPDATE). 확인과 차감이 한 문장이라 동시 구매에도 코인이 음수가 되지 않는다.
+     *
+     * @return 뺐으면 1, 코인이 모자라면 0
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Profile p set p.coin = p.coin - :amount where p.userId = :userId and p.coin >= :amount")
+    int spendCoin(@Param("userId") Long userId, @Param("amount") int amount);
+
     @Query("select p.coin from Profile p where p.userId = :userId")
     Optional<Integer> findCoinByUserId(@Param("userId") Long userId);
 
