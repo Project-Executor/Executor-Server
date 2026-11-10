@@ -47,3 +47,9 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// 실행용 jar(bootJar) 하나만 만든다. plain jar가 같이 생기면 배포 환경의 `java -jar build/libs/*.jar`가
+// 실행할 수 없는 plain jar를 고를 수 있다.
+tasks.named('jar') {
+    enabled = false
+}
