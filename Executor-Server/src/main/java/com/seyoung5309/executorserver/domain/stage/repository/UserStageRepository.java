@@ -2,6 +2,7 @@ package com.seyoung5309.executorserver.domain.stage.repository;
 
 import com.seyoung5309.executorserver.domain.stage.entity.UserStage;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +48,68 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
             where us.user.id = :userId and s.creator is null
             """)
     List<UserStage> findAllOfficialByUserId(@Param("userId") Long userId);
+
+    /**
+     * 스테이지 순위 (클리어한 기록만).
+     * 정렬: 최소 턴 오름차순 -> 먼저 클리어한 순 -> 사용자 ID 순 (순위가 항상 하나로 정해지도록).
+     */
+    @Query("""
+            select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
+                us.user.id, p.nickname, skin.id, us.bestMoves)
+            from UserStage us, Profile p
+            left join p.equippedSkin skin
+            where p.userId = us.user.id
+              and us.stage.id = :stageId
+              and us.firstClearedAt is not null
+            order by us.bestMoves asc, us.firstClearedAt asc, us.user.id asc
+            """)
+    List<RankingRow> findRanking(@Param("stageId") Long stageId, Pageable pageable);
+
+    /** 지정한 사용자들(나 + 친구) 안에서의 스테이지 순위 */
+    @Query("""
+            select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
+                us.user.id, p.nickname, skin.id, us.bestMoves)
+            from UserStage us, Profile p
+            left join p.equippedSkin skin
+            where p.userId = us.user.id
+              and us.stage.id = :stageId
+              and us.firstClearedAt is not null
+              and us.user.id in :userIds
+            order by us.bestMoves asc, us.firstClearedAt asc, us.user.id asc
+            """)
+    List<RankingRow> findRankingAmong(@Param("stageId") Long stageId,
+                                      @Param("userIds") Collection<Long> userIds,
+                                      Pageable pageable);
+
+    /** 나보다 앞선 기록 수 (전체). 내 순위 = 이 값 + 1 */
+    @Query("""
+            select count(us) from UserStage us
+            where us.stage.id = :stageId
+              and us.firstClearedAt is not null
+              and (us.bestMoves < :bestMoves
+                   or (us.bestMoves = :bestMoves and us.firstClearedAt < :firstClearedAt)
+                   or (us.bestMoves = :bestMoves and us.firstClearedAt = :firstClearedAt and us.user.id < :userId))
+            """)
+    long countAhead(@Param("stageId") Long stageId,
+                    @Param("bestMoves") int bestMoves,
+                    @Param("firstClearedAt") Instant firstClearedAt,
+                    @Param("userId") Long userId);
+
+    /** 나보다 앞선 기록 수 (지정한 사용자들 안에서) */
+    @Query("""
+            select count(us) from UserStage us
+            where us.stage.id = :stageId
+              and us.firstClearedAt is not null
+              and us.user.id in :userIds
+              and (us.bestMoves < :bestMoves
+                   or (us.bestMoves = :bestMoves and us.firstClearedAt < :firstClearedAt)
+                   or (us.bestMoves = :bestMoves and us.firstClearedAt = :firstClearedAt and us.user.id < :userId))
+            """)
+    long countAheadAmong(@Param("stageId") Long stageId,
+                         @Param("userIds") Collection<Long> userIds,
+                         @Param("bestMoves") int bestMoves,
+                         @Param("firstClearedAt") Instant firstClearedAt,
+                         @Param("userId") Long userId);
 
     /**
      * 공식 스테이지 기준 클리어 수와 별 개수.
