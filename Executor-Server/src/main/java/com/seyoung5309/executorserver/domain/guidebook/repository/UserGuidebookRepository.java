@@ -7,8 +7,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 public interface UserGuidebookRepository extends JpaRepository<UserGuidebook, Long> {
+
+    @Query("""
+            select new com.seyoung5309.executorserver.domain.guidebook.repository.UnlockedGuidebookRow(
+                ug.guidebook.id, ug.unlockedAt)
+            from UserGuidebook ug
+            where ug.user.id = :userId
+            """)
+    List<UnlockedGuidebookRow> findUnlockedByUserId(@Param("userId") Long userId);
+
+    Optional<UserGuidebook> findByUserIdAndGuidebookId(Long userId, Long guidebookId);
 
     /**
      * 도감을 해금한다. 이미 해금됐으면 아무것도 하지 않는다 (UNIQUE(user_id, guidebook_id)).
