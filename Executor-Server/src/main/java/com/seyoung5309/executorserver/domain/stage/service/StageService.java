@@ -1,6 +1,11 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
+import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.stage.dto.MyRecordResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.OperationResponse;
+import com.seyoung5309.executorserver.domain.stage.dto.StageDetailResponse;
+import com.seyoung5309.executorserver.global.exception.BusinessException;
+import com.seyoung5309.executorserver.global.response.UserSummary;
 import com.seyoung5309.executorserver.domain.stage.dto.StageSummaryResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
@@ -28,6 +33,9 @@ public class StageService {
     private final OperationRepository operationRepository;
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
+    private final ProfileRepository profileRepository;
+    private final StageAccessService stageAccessService;
+    private final MapDataParser mapDataParser;
 
     /**
      * 공식 작전·스테이지 목록과 내 진행도(해금, 클리어, 별, 최고 기록).
@@ -56,5 +64,39 @@ public class StageService {
                 .map(operation -> OperationResponse.of(
                         operation, stagesByOperation.getOrDefault(operation.getId(), List.of())))
                 .toList();
+    }
+
+    /**
+     * 스테이지 상세와 맵 데이터(hints 제외), 내 기록.
+     *
+     * @throws BusinessException NOT_FOUND, STAGE_LOCKED, FORBIDDEN
+     */
+    public StageDetailResponse getStageDetail(Long userId, Long stageId) {
+        Stage stage = stageAccessService.getPlayableStage(userId, stageId);
+        UserStage record = userStageRepository.findByUserIdAndStageId(userId, stageId).orElse(null);
+        MapDataParser.PublicMapData publicMap = mapDataParser.toPublic(stage.getMapData());
+
+        return new StageDetailResponse(
+                stage.getId(),
+                stage.getOperation() == null ? null : stage.getOperation().getId(),
+                stage.getStageNo(),
+                stage.getStageType(),
+                stage.getTitle(),
+                creatorOf(stage),
+                stage.getParMoves(),
+                stage.getRewardCoin(),
+                publicMap.hintCount(),
+                publicMap.mapData(),
+                MyRecordResponse.of(stage, record)
+        );
+    }
+
+    private UserSummary creatorOf(Stage stage) {
+        if (stage.isOfficial()) {
+            return null;
+        }
+        return profileRepository.findById(stage.getCreator().getId())
+                .map(UserSummary::from)
+                .orElse(null);
     }
 }

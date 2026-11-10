@@ -6,8 +6,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 public interface UserStageRepository extends JpaRepository<UserStage, Long> {
+
+    Optional<UserStage> findByUserIdAndStageId(Long userId, Long stageId);
+
+    /** 사용자가 클리어한 공식 스테이지 ID (해금 계산용) */
+    @Query("""
+            select s.id from UserStage us join us.stage s
+            where us.user.id = :userId and s.creator is null and us.firstClearedAt is not null
+            """)
+    Set<Long> findClearedOfficialStageIds(@Param("userId") Long userId);
 
     /** 사용자의 공식 스테이지 기록 전체 */
     @Query("""

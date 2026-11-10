@@ -42,6 +42,25 @@ public final class StageFixtures {
         return officialStage(id, operation, stageNo, StageType.NORMAL, 10);
     }
 
+    /** 사용자 제작 맵 */
+    public static Stage userMap(Long id, User creator, boolean isPublic) {
+        Stage stage = BeanUtils.instantiateClass(Stage.class);
+        ReflectionTestUtils.setField(stage, "id", id);
+        ReflectionTestUtils.setField(stage, "creator", creator);
+        ReflectionTestUtils.setField(stage, "stageType", StageType.NORMAL);
+        ReflectionTestUtils.setField(stage, "title", "user-map-" + id);
+        ReflectionTestUtils.setField(stage, "mapData", "{}");
+        ReflectionTestUtils.setField(stage, "parMoves", 10);
+        ReflectionTestUtils.setField(stage, "rewardCoin", 0);
+        ReflectionTestUtils.setField(stage, "isPublic", isPublic);
+        return stage;
+    }
+
+    public static Stage withMapData(Stage stage, String mapData) {
+        ReflectionTestUtils.setField(stage, "mapData", mapData);
+        return stage;
+    }
+
     /** 클리어한 기록 */
     public static UserStage cleared(Stage stage, int bestMoves, boolean hiddenFound) {
         UserStage record = record(stage, 1);
