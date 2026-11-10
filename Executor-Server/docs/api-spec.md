@@ -628,7 +628,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/items?type={SKIN|THEME|HINT}`
 
-판매 중(`is_active = true`)인 아이템만 조회한다.
+판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
 
 **Response** `200 OK`
 ```json
@@ -647,6 +647,8 @@ Redis에 저장된 Refresh Token을 지운다.
 { "quantity": 3 }
 ```
 - 스킨과 테마는 `quantity`를 무시하고 1개로 처리한다. 힌트는 1~99개.
+- 본문이나 `quantity`를 빼면 1개.
+- 이미 가진 스킨·테마는 코인이 모자라도 `ALREADY_OWNED`가 먼저다.
 
 **처리**: 코인 차감(`coin >= 가격` 조건부 UPDATE)과 아이템 지급을 하나의 트랜잭션으로 처리한다.
 
@@ -656,11 +658,13 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 - `quantity`: 구매한 뒤의 보유 수량
 
-**Error**: `404 NOT_FOUND` (없거나 판매가 중단된 아이템), `409 NOT_ENOUGH_COIN`, `409 ALREADY_OWNED`
+**Error**: `400 INVALID_INPUT` (힌트 수량이 1~99 밖), `404 NOT_FOUND` (없거나 판매가 중단된 아이템), `409 NOT_ENOUGH_COIN`, `409 ALREADY_OWNED`
 
 ---
 
 ### GET `/users/me/items?type={SKIN|THEME|HINT}`
+
+아이템 ID 순. 다 쓴 힌트(수량 0)는 빠진다. `equipped`는 지금 장착 중인 스킨·테마인지 나타낸다.
 
 **Response** `200 OK`
 ```json
