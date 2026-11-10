@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +14,14 @@ import java.util.Optional;
 public interface ProfileRepository extends JpaRepository<Profile, Long> {
 
     boolean existsByNickname(String nickname);
+
+    /** 코인을 더한다 (coin = coin + amount). 엔티티를 읽지 않고 DB에서 바로 더해서 동시 요청에도 값이 유실되지 않는다. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Profile p set p.coin = p.coin + :amount where p.userId = :userId")
+    int addCoin(@Param("userId") Long userId, @Param("amount") int amount);
+
+    @Query("select p.coin from Profile p where p.userId = :userId")
+    Optional<Integer> findCoinByUserId(@Param("userId") Long userId);
 
     /** 내 프로필 조회용: 이메일·권한이 필요하므로 users를 함께 읽는다 */
     @EntityGraph(attributePaths = "user")
