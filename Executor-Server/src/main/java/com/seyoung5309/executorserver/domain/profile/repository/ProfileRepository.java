@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProfileRepository extends JpaRepository<Profile, Long> {
@@ -28,6 +29,21 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Profile p set p.coin = p.coin - :amount where p.userId = :userId and p.coin >= :amount")
     int spendCoin(@Param("userId") Long userId, @Param("amount") int amount);
+
+    /**
+     * 두 사용자의 프로필 행을 ID 순서대로 잠근다 (SELECT ... FOR UPDATE). 트랜잭션 안에서 호출해야 한다.
+     * 같은 두 사람 사이의 친구 요청·수락·삭제를 한 번에 하나씩 처리하기 위해 쓴다.
+     * 항상 작은 ID부터 잠그므로 A->B, B->A 요청이 동시에 와도 교착 상태가 생기지 않는다.
+     *
+     * @return 잠근 사용자 ID (없는 사용자는 빠진다)
+     */
+    @Query(value = """
+            SELECT user_id FROM profiles
+            WHERE user_id IN (:a, :b)
+            ORDER BY user_id
+            FOR UPDATE
+            """, nativeQuery = true)
+    List<Long> lockPair(@Param("a") Long a, @Param("b") Long b);
 
     @Query("select p.coin from Profile p where p.userId = :userId")
     Optional<Integer> findCoinByUserId(@Param("userId") Long userId);

@@ -741,6 +741,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/friends`
 
+닉네임 순으로 조회한다. `since`는 친구가 된 시각.
+
 **Response** `200 OK`
 ```json
 [
@@ -751,6 +753,8 @@ Redis에 저장된 Refresh Token을 지운다.
 ---
 
 ### DELETE `/friends/{userId}`
+
+친구 관계와 함께 두 사람 사이의 친구 요청 기록도 지운다. 그래서 나중에 다시 처음부터 요청할 수 있다.
 
 **Response** `204 No Content`
 
@@ -767,7 +771,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **처리**
 - 상대가 나에게 보낸 대기 중 요청이 있으면 그 요청을 수락 처리하고 바로 친구가 된다.
-- 내가 보냈다가 거절된 요청이 있으면 그 요청을 `PENDING`으로 되돌린다.
+- 내가 보냈다가 거절된 요청이 있으면 그 요청을 `PENDING`으로 되돌린다(같은 `requestId`, `createdAt`은 다시 보낸 시각).
+- 같은 두 사람 사이의 요청·수락·거절·취소·삭제는 두 사람의 프로필 행을 ID 순서대로 잠근 뒤 처리한다. A→B, B→A 요청이 동시에 와도 바로 친구가 된다.
 
 **Response** `201 Created`
 ```json
@@ -781,7 +786,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/friend-requests/received` · GET `/friend-requests/sent`
 
-대기 중(`PENDING`)인 요청만 조회한다.
+대기 중(`PENDING`)인 요청만 최근 순으로 조회한다.
 
 **Response** `200 OK`
 ```json
@@ -802,7 +807,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "requestId": 30, "status": "ACCEPTED" }
 ```
 
-**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 처리된 요청)
+**Error**: `403 FORBIDDEN` (나에게 온 요청이 아님), `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 처리됐거나 취소된 요청)
 
 ---
 
@@ -811,6 +816,8 @@ Redis에 저장된 Refresh Token을 지운다.
 내가 보낸 대기 중 요청을 취소한다. 요청 행을 삭제한다.
 
 **Response** `204 No Content`
+
+**Error**: `403 FORBIDDEN` (내가 보낸 요청이 아님), `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 수락·거절된 요청)
 
 ---
 
