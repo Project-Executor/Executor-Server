@@ -15,4 +15,9 @@ public interface StageRepository extends JpaRepository<Stage, Long> {
             order by o.sortOrder asc, s.stageNo asc
             """)
     List<Stage> findAllOfficialInPlayOrder();
+
+    boolean existsByOperationId(Long operationId);
+
+    /** 같은 작전에 같은 번호의 스테이지가 있는지 (자기 자신 제외. 새로 만들 때는 excludeId = 0) */
+    boolean existsByOperationIdAndStageNoAndIdNot(Long operationId, Integer stageNo, Long excludeId);
 }

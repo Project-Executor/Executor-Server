@@ -39,4 +39,20 @@ public class Item {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    /** 새 아이템은 판매 중으로 등록된다 */
+    public Item(String name, String image, String description, ItemType itemType, int price) {
+        update(name, image, description, itemType, price, true);
+    }
+
+    /** 판매를 멈출 때는 삭제하지 않고 isActive = false로 바꾼다 */
+    public void update(String name, String image, String description, ItemType itemType, int price,
+                       boolean isActive) {
+        this.name = name;
+        this.image = image;
+        this.description = description;
+        this.itemType = itemType;
+        this.price = price;
+        this.isActive = isActive;
+    }
 }

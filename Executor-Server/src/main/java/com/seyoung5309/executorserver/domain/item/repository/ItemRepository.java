@@ -17,4 +17,6 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
 
     /** 판매 중인 아이템 한 건. 판매가 중단된 아이템이면 비어 있다. */
     Optional<Item> findByIdAndIsActiveTrue(Long id);
+
+    boolean existsByNameAndIdNot(String name, Long id);
 }

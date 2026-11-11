@@ -33,4 +33,16 @@ public class Guidebook {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String comment;
+
+    public Guidebook(Stage stage, GuidebookCategory category, String title, String image, String comment) {
+        update(stage, category, title, image, comment);
+    }
+
+    public void update(Stage stage, GuidebookCategory category, String title, String image, String comment) {
+        this.stage = stage;
+        this.category = category;
+        this.title = title;
+        this.image = image;
+        this.comment = comment;
+    }
 }
