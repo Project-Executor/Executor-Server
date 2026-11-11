@@ -823,6 +823,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/messages/rooms`
 
+마지막 메시지가 최근인 순으로 조회한다. 친구를 끊은 상대와의 대화도 남아 있다.
+
 **Response** `200 OK`
 ```json
 [
@@ -839,12 +841,14 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/messages/{partnerId}?page=0&size=30`
 
-최신순으로 조회한다. 조회하면 상대가 나에게 보낸 메시지를 읽음 처리한다.
+최신순으로 조회한다(`sort` 파라미터는 무시). `size`는 1~50, 기본 30.
+조회하면 상대가 나에게 보낸 메시지를 **먼저** 읽음 처리하므로 응답의 `isRead`에도 바로 반영된다. 친구를 끊은 뒤에도 기존 대화는 볼 수 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
 { "messageId": 88, "senderId": 12, "content": "보스 스테이지 몇 턴에 깼어?", "isRead": true, "createdAt": "2026-11-20T03:12:00Z" }
 ```
+- `isRead`: 받는 사람이 읽었는지. 내가 보낸 메시지면 상대가 읽었는지를 뜻한다.
 
 ---
 
@@ -861,7 +865,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "messageId": 89, "createdAt": "2026-11-20T03:13:00Z" }
 ```
 
-**Error**: `409 NOT_FRIEND`
+**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다)
 
 ---
 
