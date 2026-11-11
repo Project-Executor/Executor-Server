@@ -480,12 +480,19 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 - `hintIndex`: 0부터 `hintCount - 1`까지
 
+**처리**
+- 힌트 아이템 수량 확인과 1개 차감을 조건부 UPDATE 한 문장으로 처리한다. 힌트 아이템이 여러 종류면 아이템 ID가 작은 것부터 쓴다.
+- 어떤 힌트를 봤는지는 저장하지 않는다. 같은 힌트를 다시 요청해도 아이템이 1개 빠지므로, 받은 힌트는 클라이언트가 기억해 둔다.
+- `hintIndex` 범위 검사와 스테이지 접근 검사가 먼저다. 이 오류들로는 아이템이 빠지지 않는다.
+
 **Response** `200 OK`
 ```json
 { "hintIndex": 0, "content": "열쇠는 오른쪽 벽 너머에 있다.", "remainingHintItems": 2 }
 ```
+- `content`: `map_data.hints[hintIndex]` 그대로. 문자열이 아니라 객체로 저장했다면 객체로 나간다(키 순서는 보장하지 않음).
+- `remainingHintItems`: 쓰고 남은 힌트 아이템 수(여러 종류면 합계)
 
-**Error**: `409 NOT_ENOUGH_ITEM`, `400 INVALID_INPUT` (범위를 벗어난 hintIndex)
+**Error**: `400 INVALID_INPUT` (범위를 벗어난 hintIndex, 힌트가 없는 스테이지), `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`, `409 NOT_ENOUGH_ITEM`
 
 ---
 
