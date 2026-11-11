@@ -69,6 +69,27 @@ public class Stage {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /** 공식 스테이지를 만든다 (제작자 없음, 항상 공개) */
+    public static Stage official(Operation operation, int stageNo, StageType stageType, String title,
+                                 String mapData, int parMoves, int rewardCoin) {
+        Stage stage = new Stage();
+        stage.isPublic = true;
+        stage.updateOfficial(operation, stageNo, stageType, title, mapData, parMoves, rewardCoin);
+        return stage;
+    }
+
+    /** 공식 스테이지 내용을 바꾼다. 사용자들의 기록(user_stages)은 그대로 둔다. */
+    public void updateOfficial(Operation operation, int stageNo, StageType stageType, String title,
+                               String mapData, int parMoves, int rewardCoin) {
+        this.operation = operation;
+        this.stageNo = stageNo;
+        this.stageType = stageType;
+        this.title = title;
+        this.mapData = mapData;
+        this.parMoves = parMoves;
+        this.rewardCoin = rewardCoin;
+    }
+
     public boolean isOfficial() {
         return creator == null;
     }

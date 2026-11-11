@@ -42,6 +42,7 @@ public enum ErrorCode {
     NOT_VERIFIED(HttpStatus.CONFLICT, "제작자가 클리어한 맵만 공개할 수 있습니다."),
     PUBLISHED_STAGE(HttpStatus.CONFLICT, "공개된 맵은 수정할 수 없습니다."),
     OPERATION_HAS_STAGES(HttpStatus.CONFLICT, "스테이지가 남아 있는 작전은 삭제할 수 없습니다."),
+    DUPLICATE_VALUE(HttpStatus.CONFLICT, "이미 사용 중인 값입니다."),
 
     // 500
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

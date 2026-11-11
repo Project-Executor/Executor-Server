@@ -69,6 +69,7 @@
 | 409 | `NOT_VERIFIED` | 제작자가 클리어하지 않은 맵을 공개하려 함 |
 | 409 | `PUBLISHED_STAGE` | 공개된 맵을 수정하려 함 |
 | 409 | `OPERATION_HAS_STAGES` | 스테이지가 남아 있는 작전을 삭제하려 함 |
+| 409 | `DUPLICATE_VALUE` | 관리자 등록·수정에서 겹칠 수 없는 값이 겹침 (작전 이름·순서, 같은 작전의 스테이지 번호, 도감 이름, 아이템 이름) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 
 ### 0.4 공통 객체
@@ -910,19 +911,25 @@ Redis에 저장된 Refresh Token을 지운다.
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
 
+- 등록은 `201 Created`와 등록된 내용을, 수정은 `200 OK`와 수정된 내용을, 삭제는 `204 No Content`를 돌려준다.
+- 수정(PUT)은 모든 값을 보낸다. 문자열은 앞뒤 공백을 지우고, 선택 항목(설명, 이미지)이 빈 문자열이면 `null`로 저장한다.
+- 겹칠 수 없는 값이 겹치면 `409 DUPLICATE_VALUE`.
+
 | Method | URL | 설명 | 요청 본문 / 비고 |
 | --- | --- | --- | --- |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder` |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
-| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true) |
+| GET | `/admin/stages/{id}` | 공식 스테이지 상세 | 사용자용과 달리 `mapData`에 `hints`가 그대로 들어 있다 |
+| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보내고, `hints`가 있으면 배열이어야 한다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
 | POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment` |
 | PUT | `/admin/guidebooks/{id}` | 도감 수정 | 등록과 같음 |
 | DELETE | `/admin/guidebooks/{id}` | 도감 삭제 | 사용자의 해금 기록도 함께 삭제 |
-| POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price` |
-| PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`. 삭제 API는 두지 않는다 |
+| GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |
+| POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price`. 항상 판매 중으로 등록 |
+| PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`(필수). 가진 사용자가 있는 아이템은 `itemType`을 바꿀 수 없다(400). 삭제 API는 두지 않는다 |
 | POST | `/admin/mails` | 우편 발송 | 아래 참고 |
 | GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 신고자, 대상, 내용 포함 |
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. `DONE`이면 `handledAt`을 기록 |

@@ -14,6 +14,9 @@ import java.util.Optional;
 
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
+    /** 이 아이템을 가진 사용자가 한 명이라도 있는지 (다 쓴 힌트 포함) */
+    boolean existsByItemId(Long itemId);
+
     /** 보유 아이템 한 건 (아이템 정보 포함) */
     @EntityGraph(attributePaths = "item")
     Optional<UserItem> findByUserIdAndItemId(Long userId, Long itemId);
