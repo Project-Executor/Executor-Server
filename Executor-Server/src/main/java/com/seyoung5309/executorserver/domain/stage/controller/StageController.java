@@ -1,10 +1,13 @@
 package com.seyoung5309.executorserver.domain.stage.controller;
 
+import com.seyoung5309.executorserver.domain.stage.dto.HintRequest;
+import com.seyoung5309.executorserver.domain.stage.dto.HintResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.RankingResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageDetailResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultRequest;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse;
 import com.seyoung5309.executorserver.domain.stage.service.RankingScope;
+import com.seyoung5309.executorserver.domain.stage.service.StageHintService;
 import com.seyoung5309.executorserver.domain.stage.service.StageRankingService;
 import com.seyoung5309.executorserver.domain.stage.service.StageResultService;
 import com.seyoung5309.executorserver.domain.stage.service.StageService;
@@ -26,6 +29,7 @@ public class StageController {
     private final StageService stageService;
     private final StageResultService stageResultService;
     private final StageRankingService stageRankingService;
+    private final StageHintService stageHintService;
 
     @Operation(summary = "스테이지 상세",
             description = "공식 스테이지와 사용자 맵 모두 이 API로 불러온다. mapData에서 hints는 빠지고 개수만 hintCount로 준다. "
@@ -43,6 +47,17 @@ public class StageController {
                                             @PathVariable Long stageId,
                                             @Valid @RequestBody StageResultRequest request) {
         return stageResultService.submit(userId, stageId, request);
+    }
+
+    @Operation(summary = "힌트 사용",
+            description = "힌트 아이템 1개를 쓰고 hints[hintIndex]를 받는다. 이미 본 힌트를 다시 요청해도 1개가 빠지므로 "
+                    + "받은 힌트는 클라이언트가 기억해 둘 것. 범위를 벗어난 hintIndex는 400(아이템은 빠지지 않음), "
+                    + "힌트 아이템이 없으면 409 NOT_ENOUGH_ITEM.")
+    @PostMapping("/{stageId}/hint")
+    public HintResponse useHint(@LoginUser Long userId,
+                                @PathVariable Long stageId,
+                                @Valid @RequestBody HintRequest request) {
+        return stageHintService.useHint(userId, stageId, request.hintIndex());
     }
 
     @Operation(summary = "최소 턴 순위",
