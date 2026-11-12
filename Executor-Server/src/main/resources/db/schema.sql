@@ -8,6 +8,8 @@
 --    운영 DB에 실수로 실행해도 기존 데이터는 지워지지 않는다.
 --  - 개발·테스트 DB를 처음부터 다시 만들려면 먼저 reset-dev.sql을 실행한다
 --    (DB 이름에 test 또는 dev가 들어간 DB에서만 동작한다).
+--  - 이 파일은 항상 최신 구조다. 이미 운영 중인 DB에 구조를 바꿀 때는 이 파일을 고치고,
+--    같은 변경을 migrations/YYYY-MM-DD_설명.sql로 따로 만들어 운영 DB에 그 파일만 실행한다.
 --
 -- [공통 규칙]
 --  - 모든 PK는 BIGINT AUTO_INCREMENT (JPA의 Long과 매핑)
