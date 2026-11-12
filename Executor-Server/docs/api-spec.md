@@ -685,7 +685,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/mails?page=0&size=20`
 
-만료되지 않은 우편을 최신순으로 조회한다.
+만료되지 않은 우편을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 우편도 `claimed: true`로 남아 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -707,7 +707,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### POST `/mails/{mailId}/claim`
 
-**처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템 가격만큼 코인으로 바꿔서 준다.
+**처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템의 **현재 가격**만큼 코인으로 바꿔서 준다.
+- 잠금 순서는 우편 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
 
 **Response** `200 OK`
 ```json
@@ -720,15 +721,16 @@ Redis에 저장된 Refresh Token을 지운다.
 }
 ```
 - `convertedCoin`: 이미 가진 아이템을 코인으로 바꾼 금액. 바꾼 게 없으면 0
-- `rewardItem`: 실제로 지급된 아이템. 코인으로 바꿨다면 `null`
+- `rewardItem`: 실제로 지급된 아이템 `{ "itemId", "itemType", "quantity" }`. 첨부가 없거나 코인으로 바꿨다면 `null`
+- `totalCoin`: 받은 뒤 내 코인
 
-**Error**: `403 FORBIDDEN`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
+**Error**: `403 FORBIDDEN` (내 우편이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
 
 ---
 
 ### POST `/mails/claim-all`
 
-받을 수 있는 우편을 모두 받는다.
+받을 수 있는 우편을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 우편에 있으면 첫 우편에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
 
 **Response** `200 OK`
 ```json
@@ -960,8 +962,11 @@ Redis에 저장된 Refresh Token을 지운다.
   "expiresAt": "2026-12-31T14:59:59Z"
 }
 ```
-- `toAll`이 `true`면 `receiverIds`를 무시하고 모든 사용자에게 한 통씩 보낸다.
-- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다.
+- `toAll`이 `true`면 `receiverIds`를 무시하고 모든 사용자에게 한 통씩 보낸다. 아니면 `receiverIds`(최대 1000명, 중복은 한 번만)가 필요하고, 없는 사용자가 있으면 `404`(메시지에 그 ID 목록)로 아무에게도 보내지 않는다.
+- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다. 아이템이 있으면 스킨·테마는 1개, 힌트는 1~99개.
+- `rewardCoin`(0~1,000,000)과 `rewardItemQuantity`는 생략하면 0. `title`은 1~100자, `content`는 2000자 이하.
+- `expiresAt`은 `null`(무기한)이거나 지금보다 뒤여야 한다.
+- 받는 사람 수와 상관없이 `INSERT ... SELECT` 한 문장으로 넣는다.
 
 **Response** `201 Created`
 ```json
