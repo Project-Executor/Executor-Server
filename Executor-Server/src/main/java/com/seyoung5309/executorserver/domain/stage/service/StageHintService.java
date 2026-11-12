@@ -1,8 +1,10 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.HintResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -19,12 +23,15 @@ public class StageHintService {
     private final StageAccessService stageAccessService;
     private final MapDataParser mapDataParser;
     private final UserItemRepository userItemRepository;
+    private final UserStageHintRepository userStageHintRepository;
+    private final ProfileRepository profileRepository;
+    private final Clock clock;
 
     /**
-     * 힌트 아이템 1개를 쓰고 이 스테이지의 힌트 하나를 받는다.
+     * 이 스테이지의 힌트 하나를 받는다. 처음 보는 힌트면 힌트 아이템 1개를 쓰고, 이미 본 힌트면 무료다.
      * <p>
-     * 어떤 힌트를 이미 봤는지는 저장하지 않으므로, 같은 힌트를 다시 요청해도 아이템이 1개 더 빠진다.
-     * 받은 힌트는 클라이언트가 기억해 두어야 한다.
+     * 같은 사용자의 요청은 프로필 행을 잠가 하나씩 처리한다 (잠금 순서: profiles -> user_stage_hints -> user_items).
+     * 아이템이 없어 실패하면 트랜잭션이 롤백되어 열람 기록도 남지 않는다.
      *
      * @throws BusinessException NOT_FOUND, STAGE_LOCKED, FORBIDDEN(남의 비공개 맵),
      *                           INVALID_INPUT(범위를 벗어난 hintIndex), NOT_ENOUGH_ITEM
@@ -41,10 +48,13 @@ public class StageHintService {
                     : "hintIndex는 0~" + (hints.size() - 1) + " 사이여야 합니다.");
         }
 
-        if (userItemRepository.useOneHint(userId) == 0) {
+        profileRepository.lockOne(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        boolean firstView = userStageHintRepository.insertIfAbsent(userId, stageId, hintIndex, Instant.now(clock)) == 1;
+        if (firstView && userItemRepository.useOneHint(userId) == 0) {
             throw new BusinessException(ErrorCode.NOT_ENOUGH_ITEM, "힌트 아이템이 없습니다. 상점에서 구매해 주세요.");
         }
 
-        return new HintResponse(hintIndex, hints.get(hintIndex), userItemRepository.sumHintQuantity(userId));
+        return new HintResponse(hintIndex, hints.get(hintIndex), firstView, userItemRepository.sumHintQuantity(userId));
     }
 }

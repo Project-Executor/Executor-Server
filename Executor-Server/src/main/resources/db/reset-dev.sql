@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS mails;
 DROP TABLE IF EXISTS user_items;
 DROP TABLE IF EXISTS user_guidebooks;
 DROP TABLE IF EXISTS guidebooks;
+DROP TABLE IF EXISTS user_stage_hints;
 DROP TABLE IF EXISTS user_stages;
 DROP TABLE IF EXISTS stages;
 DROP TABLE IF EXISTS operations;

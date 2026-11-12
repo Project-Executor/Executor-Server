@@ -1,17 +1,27 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.HintResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Optional;
 
 import static com.seyoung5309.executorserver.domain.stage.StageFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
@@ -19,17 +29,25 @@ class StageHintServiceTest {
 
     private static final Long USER_ID = 1L;
     private static final Long STAGE_ID = 20L;
+    private static final Instant NOW = Instant.parse("2026-11-12T03:00:00Z");
 
     private StageAccessService stageAccessService;
     private UserItemRepository userItemRepository;
+    private UserStageHintRepository userStageHintRepository;
+    private ProfileRepository profileRepository;
     private StageHintService service;
 
     @BeforeEach
     void setUp() {
         stageAccessService = mock(StageAccessService.class);
         userItemRepository = mock(UserItemRepository.class);
+        userStageHintRepository = mock(UserStageHintRepository.class);
+        profileRepository = mock(ProfileRepository.class);
         service = new StageHintService(stageAccessService, new MapDataParser(JsonMapper.builder().build()),
-                userItemRepository);
+                userItemRepository, userStageHintRepository, profileRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        when(profileRepository.lockOne(USER_ID)).thenReturn(Optional.of(USER_ID));
+        // 기본은 처음 보는 힌트
+        when(userStageHintRepository.insertIfAbsent(anyLong(), anyLong(), anyInt(), any())).thenReturn(1);
     }
 
     @Test
@@ -42,7 +60,26 @@ class StageHintServiceTest {
 
         assertThat(response.hintIndex()).isEqualTo(1);
         assertThat(response.content().asString()).isEqualTo("봇은 두 칸마다 움직인다.");
+        assertThat(response.charged()).isTrue();
         assertThat(response.remainingHintItems()).isEqualTo(2L);
+        InOrder order = inOrder(profileRepository, userStageHintRepository, userItemRepository);
+        order.verify(profileRepository).lockOne(USER_ID);
+        order.verify(userStageHintRepository).insertIfAbsent(USER_ID, STAGE_ID, 1, NOW);
+        order.verify(userItemRepository).useOneHint(USER_ID);
+    }
+
+    @Test
+    void 이미_본_힌트는_아이템을_쓰지_않고_아이템이_0개여도_받는다() {
+        givenStage("{\"hints\":[\"a\",\"b\"]}");
+        when(userStageHintRepository.insertIfAbsent(USER_ID, STAGE_ID, 0, NOW)).thenReturn(0);
+        when(userItemRepository.sumHintQuantity(USER_ID)).thenReturn(0L);
+
+        HintResponse response = service.useHint(USER_ID, STAGE_ID, 0);
+
+        assertThat(response.content().asString()).isEqualTo("a");
+        assertThat(response.charged()).isFalse();
+        assertThat(response.remainingHintItems()).isZero();
+        verify(userItemRepository, never()).useOneHint(anyLong());
     }
 
     @Test
@@ -72,6 +109,7 @@ class StageHintServiceTest {
         assertErrorCode(() -> service.useHint(USER_ID, STAGE_ID, 2), ErrorCode.INVALID_INPUT);
         assertErrorCode(() -> service.useHint(USER_ID, STAGE_ID, -1), ErrorCode.INVALID_INPUT);
         verify(userItemRepository, never()).useOneHint(anyLong());
+        verify(userStageHintRepository, never()).insertIfAbsent(anyLong(), anyLong(), anyInt(), any());
     }
 
     @Test

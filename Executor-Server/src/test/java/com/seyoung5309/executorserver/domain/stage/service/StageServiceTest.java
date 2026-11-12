@@ -16,6 +16,7 @@ import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class StageServiceTest {
     private OperationRepository operationRepository;
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
+    private UserStageHintRepository userStageHintRepository;
     private ProfileRepository profileRepository;
     private StageAccessService stageAccessService;
     private StageService stageService;
@@ -51,9 +53,10 @@ class StageServiceTest {
         operationRepository = mock(OperationRepository.class);
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
+        userStageHintRepository = mock(UserStageHintRepository.class);
         profileRepository = mock(ProfileRepository.class);
         stageAccessService = mock(StageAccessService.class);
-        stageService = new StageService(operationRepository, stageRepository, userStageRepository,
+        stageService = new StageService(operationRepository, stageRepository, userStageRepository, userStageHintRepository,
                 profileRepository, stageAccessService, new MapDataParser(JsonMapper.builder().build()));
 
         when(operationRepository.findAllByOrderBySortOrderAsc()).thenReturn(List.of(tutorial, op1, op2));
@@ -117,6 +120,8 @@ class StageServiceTest {
         withMapData(s1, "{\"width\":7,\"hints\":[\"a\",\"b\"]}");
         when(stageAccessService.getPlayableStage(1L, 20L)).thenReturn(s1);
         when(userStageRepository.findByUserIdAndStageId(1L, 20L)).thenReturn(Optional.of(cleared(s1, 15, true)));
+        // 3번은 관리자가 힌트를 줄여서 범위 밖이 된 기록
+        when(userStageHintRepository.findHintIndexes(1L, 20L)).thenReturn(List.of(1, 3));
 
         StageDetailResponse detail = stageService.getStageDetail(1L, 20L);
 
@@ -124,6 +129,7 @@ class StageServiceTest {
         assertThat(detail.operationId()).isEqualTo(2L);
         assertThat(detail.creator()).isNull();
         assertThat(detail.hintCount()).isEqualTo(2);
+        assertThat(detail.viewedHintIndexes()).containsExactly(1);
         assertThat(detail.mapData().has("hints")).isFalse();
         assertThat(detail.mapData().get("width").asInt()).isEqualTo(7);
         assertThat(detail.myRecord().cleared()).isTrue();

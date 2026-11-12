@@ -12,6 +12,7 @@ import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.UserStage;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class StageService {
     private final OperationRepository operationRepository;
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
+    private final UserStageHintRepository userStageHintRepository;
     private final ProfileRepository profileRepository;
     private final StageAccessService stageAccessService;
     private final MapDataParser mapDataParser;
@@ -75,6 +77,10 @@ public class StageService {
         Stage stage = stageAccessService.getPlayableStage(userId, stageId);
         UserStage record = userStageRepository.findByUserIdAndStageId(userId, stageId).orElse(null);
         MapDataParser.PublicMapData publicMap = mapDataParser.toPublic(stage.getMapData());
+        // 관리자가 힌트 수를 줄였으면 범위 밖 번호는 빼고 준다
+        List<Integer> viewedHints = userStageHintRepository.findHintIndexes(userId, stageId).stream()
+                .filter(index -> index < publicMap.hintCount())
+                .toList();
 
         return new StageDetailResponse(
                 stage.getId(),
@@ -86,6 +92,7 @@ public class StageService {
                 stage.getParMoves(),
                 stage.getRewardCoin(),
                 publicMap.hintCount(),
+                viewedHints,
                 publicMap.mapData(),
                 MyRecordResponse.of(stage, record)
         );

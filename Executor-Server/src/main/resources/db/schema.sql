@@ -234,6 +234,27 @@ CREATE TABLE user_stages (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 스테이지 기록';
 
 
+-- 사용자가 본 힌트
+--  - 한 번 본 힌트는 다시 요청해도 힌트 아이템을 쓰지 않는다 (처음 INSERT될 때만 차감)
+--  - 사용자 맵을 수정하면 그 맵의 플레이 기록과 함께 지운다
+CREATE TABLE user_stage_hints (
+    id          BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    user_id     BIGINT     NOT NULL                COMMENT '사용자 ID',
+    stage_id    BIGINT     NOT NULL                COMMENT '스테이지 ID',
+    hint_index  INT        NOT NULL                COMMENT 'map_data.hints 배열 번호 (0부터)',
+    viewed_at   DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '처음 본 날짜',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_stage_hints (user_id, stage_id, hint_index),
+    KEY idx_user_stage_hints_stage (stage_id),
+    CONSTRAINT chk_user_stage_hints_index CHECK (hint_index >= 0),
+    CONSTRAINT fk_user_stage_hints_user
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_stage_hints_stage
+        FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자가 본 힌트';
+
+
 -- =====================================================================
 -- 4. 도감
 -- =====================================================================
