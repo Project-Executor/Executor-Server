@@ -884,8 +884,14 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Response** `200 OK`
 ```json
-[ { "categoryId": 1, "name": "부적절한 닉네임" }, { "categoryId": 2, "name": "불량 맵" }, { "categoryId": 3, "name": "버그 제보" }, { "categoryId": 4, "name": "기타" } ]
+[
+  { "categoryId": 1, "name": "부적절한 닉네임", "targetRequired": true },
+  { "categoryId": 2, "name": "불량 맵", "targetRequired": true },
+  { "categoryId": 3, "name": "버그 제보", "targetRequired": false },
+  { "categoryId": 4, "name": "기타", "targetRequired": false }
+]
 ```
+- `targetRequired`: 신고 대상(사용자 또는 스테이지)을 꼭 지정해야 하는지. `report_categories`에 이를 나타내는 컬럼이 없어서 서버가 카테고리 **이름**(`버그 제보`, `기타`)으로 판단한다. 카테고리 이름을 바꾸면 서버 코드도 함께 바꿔야 한다.
 
 ---
 
@@ -901,17 +907,22 @@ Redis에 저장된 Refresh Token을 지운다.
   "comment": "문이 벽으로 막혀 있습니다."
 }
 ```
-- 버그 제보와 기타를 빼면 `targetUserId`와 `targetStageId` 중 하나는 꼭 있어야 한다.
+- 버그 제보와 기타를 빼면 `targetUserId`와 `targetStageId` 중 하나는 꼭 있어야 한다. **둘 다 지정할 수는 없다.**
+- 자기 자신은 신고할 수 없다. 남의 비공개 맵은 볼 수 없는 맵이므로 없는 스테이지(`404`)로 처리한다.
 - `title`은 1~255자, `comment`는 1~2000자.
 
 **Response** `201 Created`
 ```json
-{ "reportId": 7, "status": "RECEIVED" }
+{ "reportId": 7, "status": "RECEIVED", "handledAt": null }
 ```
+
+**Error**: `400 INVALID_INPUT` (대상 규칙, 자기 자신, 길이), `404 NOT_FOUND` (카테고리·대상 사용자·대상 스테이지)
 
 ---
 
 ### GET `/reports/me?page=0&size=20`
+
+최신순으로 조회한다(`size` 1~50).
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -944,8 +955,8 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price`. 항상 판매 중으로 등록 |
 | PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`(필수). 가진 사용자가 있는 아이템은 `itemType`을 바꿀 수 없다(400). 삭제 API는 두지 않는다 |
 | POST | `/admin/mails` | 우편 발송 | 아래 참고 |
-| GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 신고자, 대상, 내용 포함 |
-| PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. `DONE`이면 `handledAt`을 기록 |
+| GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
+| PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 
 ### POST `/admin/mails`
 
