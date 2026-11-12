@@ -9,6 +9,7 @@ import com.seyoung5309.executorserver.domain.stage.dto.PublicCustomStageResponse
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.StageClearCount;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
@@ -38,6 +39,7 @@ class CustomStageServiceTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
+    private UserStageHintRepository userStageHintRepository;
     private ProfileRepository profileRepository;
     private CustomStageService service;
 
@@ -45,6 +47,7 @@ class CustomStageServiceTest {
     void setUp() {
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
+        userStageHintRepository = mock(UserStageHintRepository.class);
         profileRepository = mock(ProfileRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         when(userRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
@@ -53,7 +56,8 @@ class CustomStageServiceTest {
             ReflectionTestUtils.setField(saved, "id", 101L);
             return saved;
         });
-        service = new CustomStageService(stageRepository, userStageRepository, profileRepository, userRepository,
+        service = new CustomStageService(stageRepository, userStageRepository, userStageHintRepository,
+                profileRepository, userRepository,
                 new MapDataParser(objectMapper));
     }
 
@@ -85,7 +89,7 @@ class CustomStageServiceTest {
     }
 
     @Test
-    void 비공개_맵을_수정하면_기록을_지운다() {
+    void 비공개_맵을_수정하면_기록과_힌트_열람_기록을_지운다() {
         Stage map = userMap(30L, user(ME), false);
         when(stageRepository.findForUpdate(30L)).thenReturn(Optional.of(map));
 
@@ -97,6 +101,7 @@ class CustomStageServiceTest {
         InOrder order = inOrder(stageRepository, userStageRepository);
         order.verify(stageRepository).findForUpdate(30L);
         order.verify(userStageRepository).deleteByStageId(30L);
+        verify(userStageHintRepository).deleteByStageId(30L);
     }
 
     @Test
@@ -105,6 +110,7 @@ class CustomStageServiceTest {
 
         assertErrorCode(() -> service.update(ME, 30L, request("t", "{}")), ErrorCode.PUBLISHED_STAGE);
         verify(userStageRepository, never()).deleteByStageId(anyLong());
+        verify(userStageHintRepository, never()).deleteByStageId(anyLong());
     }
 
     @Test

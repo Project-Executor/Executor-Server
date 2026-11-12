@@ -10,6 +10,7 @@ import com.seyoung5309.executorserver.domain.stage.dto.PublicCustomStageResponse
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.StageClearCount;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
  * <ul>
  *     <li>저장하면 비공개. 비공개 맵은 제작자만 보고 플레이할 수 있다 (StageAccessService)</li>
  *     <li>제작자가 클리어한 맵(verified)만 공개할 수 있다</li>
- *     <li>공개된 맵은 수정할 수 없고, 비공개 맵을 수정하면 그 맵의 기록을 모두 지운다 (다시 클리어해야 공개 가능)</li>
+ *     <li>공개된 맵은 수정할 수 없고, 비공개 맵을 수정하면 그 맵의 기록과 힌트 열람 기록을 모두 지운다 (다시 클리어해야 공개 가능)</li>
  *     <li>보상 코인은 항상 0</li>
  * </ul>
  * 수정·공개 전환·삭제는 스테이지 행을 잠그고 처리한다. 수정(기록 삭제)과 공개 전환이 동시에 와서
@@ -51,6 +52,7 @@ public class CustomStageService {
 
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
+    private final UserStageHintRepository userStageHintRepository;
     private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final MapDataParser mapDataParser;
@@ -107,7 +109,7 @@ public class CustomStageService {
     }
 
     /**
-     * 비공개 맵을 수정하고, 그 맵의 기록(제작자 기록 포함)을 모두 지운다.
+     * 비공개 맵을 수정하고, 그 맵의 기록(제작자 기록 포함)과 힌트 열람 기록을 모두 지운다.
      *
      * @throws BusinessException NOT_FOUND, FORBIDDEN(내 맵이 아님), PUBLISHED_STAGE(공개 중), INVALID_INPUT
      */
@@ -120,6 +122,7 @@ public class CustomStageService {
         stage.updateUserMap(request.title().strip(), mapData, request.parMoves());
         stageRepository.flush();
         userStageRepository.deleteByStageId(stageId);
+        userStageHintRepository.deleteByStageId(stageId);
         return new CustomStageStateResponse(stageId, false, false);
     }
 
