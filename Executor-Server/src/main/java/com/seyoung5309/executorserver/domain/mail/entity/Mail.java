@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import com.seyoung5309.executorserver.global.jpa.CreatedAtSeconds;
 
 import java.time.Instant;
 
@@ -47,7 +47,7 @@ public class Mail {
     /** NULL = 무기한 */
     private Instant expiresAt;
 
-    @CreationTimestamp
+    @CreatedAtSeconds
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 }
