@@ -90,6 +90,29 @@ public class Stage {
         this.rewardCoin = rewardCoin;
     }
 
+    /** 사용자 맵을 만든다 (작전·번호 없음, 보상 0, 비공개, 일반 스테이지) */
+    public static Stage userMap(User creator, String title, String mapData, int parMoves) {
+        Stage stage = new Stage();
+        stage.creator = creator;
+        stage.stageType = StageType.NORMAL;
+        stage.rewardCoin = 0;
+        stage.isPublic = false;
+        stage.updateUserMap(title, mapData, parMoves);
+        return stage;
+    }
+
+    /** 사용자 맵 내용을 바꾼다. 공개 여부 검사와 기록 삭제는 서비스에서 한다. */
+    public void updateUserMap(String title, String mapData, int parMoves) {
+        this.title = title;
+        this.mapData = mapData;
+        this.parMoves = parMoves;
+    }
+
+    /** 공개 여부를 바꾼다. 공개 조건(제작자 클리어) 검사는 서비스에서 한다. */
+    public void changeVisibility(boolean isPublic) {
+        this.isPublic = isPublic;
+    }
+
     public boolean isOfficial() {
         return creator == null;
     }

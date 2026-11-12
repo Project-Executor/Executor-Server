@@ -17,6 +17,30 @@ import java.util.Set;
 
 public interface UserStageRepository extends JpaRepository<UserStage, Long> {
 
+    /** 스테이지별 클리어한 사용자 수 (클리어한 사람이 없는 스테이지는 빠진다) */
+    @Query("""
+            select new com.seyoung5309.executorserver.domain.stage.repository.StageClearCount(us.stage.id, count(us))
+            from UserStage us
+            where us.stage.id in :stageIds and us.firstClearedAt is not null
+            group by us.stage.id
+            """)
+    List<StageClearCount> countClears(@Param("stageIds") Collection<Long> stageIds);
+
+    /** 주어진 스테이지 중 내가 클리어한 것 */
+    @Query("""
+            select us.stage.id from UserStage us
+            where us.user.id = :userId and us.stage.id in :stageIds and us.firstClearedAt is not null
+            """)
+    Set<Long> findClearedStageIdsAmong(@Param("userId") Long userId, @Param("stageIds") Collection<Long> stageIds);
+
+    /** 이 사용자가 이 스테이지를 클리어했는지 (사용자 맵의 verified 판단) */
+    boolean existsByUserIdAndStageIdAndFirstClearedAtIsNotNull(Long userId, Long stageId);
+
+    /** 스테이지의 기록을 모두 지운다 (사용자 맵을 수정하면 기존 기록은 의미가 없어진다) */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from UserStage us where us.stage.id = :stageId")
+    int deleteByStageId(@Param("stageId") Long stageId);
+
     Optional<UserStage> findByUserIdAndStageId(Long userId, Long stageId);
 
     /**

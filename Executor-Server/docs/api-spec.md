@@ -499,9 +499,12 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ## 5. 사용자 제작 맵
 
+플레이(상세 조회, 결과 제출, 순위)는 공식 스테이지와 같은 `/stages/{stageId}` API를 쓴다. 비공개 맵은 제작자만 조회·플레이할 수 있고(남은 `403`), 보상 코인은 항상 0이다.
+수정·공개 전환·삭제는 스테이지 행을 잠그고 처리하므로, 수정(기록 삭제)과 공개가 동시에 와도 검증되지 않은 맵이 공개되지 않는다.
+
 ### GET `/custom-stages?page=0&size=20`
 
-공개된 사용자 맵을 최신순으로 조회한다.
+공개된 사용자 맵을 최신순(만든 시각)으로 조회한다(`size` 1~50).
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -515,12 +518,13 @@ Redis에 저장된 Refresh Token을 지운다.
   "createdAt": "2026-11-20T03:12:00Z"
 }
 ```
+- `clearCount`: 이 맵을 클리어한 사용자 수(제작자 포함), `myCleared`: 내가 클리어했는지
 
 ---
 
 ### GET `/custom-stages/me`
 
-내가 만든 맵 목록. 비공개 맵도 포함한다.
+내가 만든 맵 목록. 비공개 맵도 포함하고 최근 수정 순으로 조회한다.
 
 **Response** `200 OK`
 ```json
@@ -543,7 +547,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | title | 1~100자 |
 | parMoves | 1~9999 |
-| mapData | 필수. 서버는 크기(최대 256KB)와 필수 키만 검사한다 |
+| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지, `hints`가 있으면 배열인지, 크기(UTF-8 최대 256KB)만 검사한다 |
 
 **Response** `201 Created`
 ```json
@@ -563,7 +567,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "stageId": 101, "isPublic": false, "verified": false }
 ```
 
-**Error**: `403 FORBIDDEN`, `409 PUBLISHED_STAGE`
+**Error**: `400 INVALID_INPUT`, `403 FORBIDDEN` (내 맵이 아님), `404 NOT_FOUND` (없거나 공식 스테이지), `409 PUBLISHED_STAGE`
 
 ---
 
@@ -574,12 +578,14 @@ Redis에 저장된 Refresh Token을 지운다.
 { "isPublic": true }
 ```
 
+비공개로는 언제든 바꿀 수 있다. 비공개로 바꿔도 기록은 남는다.
+
 **Response** `200 OK`
 ```json
-{ "stageId": 101, "isPublic": true }
+{ "stageId": 101, "isPublic": true, "verified": true }
 ```
 
-**Error**: `403 FORBIDDEN`, `409 NOT_VERIFIED` (클리어하지 않은 맵을 공개하려 함)
+**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`, `409 NOT_VERIFIED` (클리어하지 않은 맵을 공개하려 함)
 
 ---
 
@@ -589,7 +595,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Response** `204 No Content`
 
-**Error**: `403 FORBIDDEN`
+**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`
 
 ---
 

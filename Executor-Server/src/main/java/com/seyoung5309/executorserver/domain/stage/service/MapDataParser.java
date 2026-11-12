@@ -1,11 +1,14 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
+import com.seyoung5309.executorserver.global.exception.BusinessException;
+import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +47,29 @@ public class MapDataParser {
             hints.forEach(result::add);
         }
         return result;
+    }
+
+    /**
+     * 저장할 맵 데이터를 검사하고 JSON 문자열로 바꾼다.
+     * JSON 객체여야 하고, hints가 있으면 배열이어야 하며, UTF-8로 maxBytes 이하여야 한다.
+     * 그 밖의 구조는 Unity가 정하므로 검사하지 않는다.
+     *
+     * @throws BusinessException INVALID_INPUT
+     */
+    public String toStoredJson(JsonNode mapData, int maxBytes) {
+        if (mapData == null || !mapData.isObject()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "mapData는 JSON 객체여야 합니다.");
+        }
+        JsonNode hints = mapData.get(HINTS);
+        if (hints != null && !hints.isArray()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "mapData.hints는 배열이어야 합니다.");
+        }
+        String json = objectMapper.writeValueAsString(mapData);
+        if (json.getBytes(StandardCharsets.UTF_8).length > maxBytes) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "mapData는 " + (maxBytes / 1024) + "KB 이하여야 합니다.");
+        }
+        return json;
     }
 
     public record PublicMapData(JsonNode mapData, int hintCount) {
