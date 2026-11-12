@@ -24,4 +24,14 @@ public class Operation {
     /** 표시 순서 (튜토리얼 = 0) */
     @Column(nullable = false, unique = true)
     private int sortOrder;
+
+    public Operation(String name, String description, int sortOrder) {
+        update(name, description, sortOrder);
+    }
+
+    public void update(String name, String description, int sortOrder) {
+        this.name = name;
+        this.description = description;
+        this.sortOrder = sortOrder;
+    }
 }

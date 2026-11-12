@@ -5,9 +5,9 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import com.seyoung5309.executorserver.global.jpa.CreatedAtSeconds;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
+import com.seyoung5309.executorserver.global.jpa.UpdatedAtSeconds;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
@@ -61,13 +61,57 @@ public class Stage {
     @Column(nullable = false)
     private boolean isPublic;
 
-    @CreationTimestamp
+    @CreatedAtSeconds
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    @UpdateTimestamp
+    @UpdatedAtSeconds
     @Column(nullable = false)
     private Instant updatedAt;
+
+    /** 공식 스테이지를 만든다 (제작자 없음, 항상 공개) */
+    public static Stage official(Operation operation, int stageNo, StageType stageType, String title,
+                                 String mapData, int parMoves, int rewardCoin) {
+        Stage stage = new Stage();
+        stage.isPublic = true;
+        stage.updateOfficial(operation, stageNo, stageType, title, mapData, parMoves, rewardCoin);
+        return stage;
+    }
+
+    /** 공식 스테이지 내용을 바꾼다. 사용자들의 기록(user_stages)은 그대로 둔다. */
+    public void updateOfficial(Operation operation, int stageNo, StageType stageType, String title,
+                               String mapData, int parMoves, int rewardCoin) {
+        this.operation = operation;
+        this.stageNo = stageNo;
+        this.stageType = stageType;
+        this.title = title;
+        this.mapData = mapData;
+        this.parMoves = parMoves;
+        this.rewardCoin = rewardCoin;
+    }
+
+    /** 사용자 맵을 만든다 (작전·번호 없음, 보상 0, 비공개, 일반 스테이지) */
+    public static Stage userMap(User creator, String title, String mapData, int parMoves) {
+        Stage stage = new Stage();
+        stage.creator = creator;
+        stage.stageType = StageType.NORMAL;
+        stage.rewardCoin = 0;
+        stage.isPublic = false;
+        stage.updateUserMap(title, mapData, parMoves);
+        return stage;
+    }
+
+    /** 사용자 맵 내용을 바꾼다. 공개 여부 검사와 기록 삭제는 서비스에서 한다. */
+    public void updateUserMap(String title, String mapData, int parMoves) {
+        this.title = title;
+        this.mapData = mapData;
+        this.parMoves = parMoves;
+    }
+
+    /** 공개 여부를 바꾼다. 공개 조건(제작자 클리어) 검사는 서비스에서 한다. */
+    public void changeVisibility(boolean isPublic) {
+        this.isPublic = isPublic;
+    }
 
     public boolean isOfficial() {
         return creator == null;

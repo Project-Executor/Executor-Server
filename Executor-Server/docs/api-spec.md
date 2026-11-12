@@ -69,6 +69,7 @@
 | 409 | `NOT_VERIFIED` | 제작자가 클리어하지 않은 맵을 공개하려 함 |
 | 409 | `PUBLISHED_STAGE` | 공개된 맵을 수정하려 함 |
 | 409 | `OPERATION_HAS_STAGES` | 스테이지가 남아 있는 작전을 삭제하려 함 |
+| 409 | `DUPLICATE_VALUE` | 관리자 등록·수정에서 겹칠 수 없는 값이 겹침 (작전 이름·순서, 같은 작전의 스테이지 번호, 도감 이름, 아이템 이름) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 
 ### 0.4 공통 객체
@@ -480,20 +481,30 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 - `hintIndex`: 0부터 `hintCount - 1`까지
 
+**처리**
+- 힌트 아이템 수량 확인과 1개 차감을 조건부 UPDATE 한 문장으로 처리한다. 힌트 아이템이 여러 종류면 아이템 ID가 작은 것부터 쓴다.
+- 어떤 힌트를 봤는지는 저장하지 않는다. 같은 힌트를 다시 요청해도 아이템이 1개 빠지므로, 받은 힌트는 클라이언트가 기억해 둔다.
+- `hintIndex` 범위 검사와 스테이지 접근 검사가 먼저다. 이 오류들로는 아이템이 빠지지 않는다.
+
 **Response** `200 OK`
 ```json
 { "hintIndex": 0, "content": "열쇠는 오른쪽 벽 너머에 있다.", "remainingHintItems": 2 }
 ```
+- `content`: `map_data.hints[hintIndex]` 그대로. 문자열이 아니라 객체로 저장했다면 객체로 나간다(키 순서는 보장하지 않음).
+- `remainingHintItems`: 쓰고 남은 힌트 아이템 수(여러 종류면 합계)
 
-**Error**: `409 NOT_ENOUGH_ITEM`, `400 INVALID_INPUT` (범위를 벗어난 hintIndex)
+**Error**: `400 INVALID_INPUT` (범위를 벗어난 hintIndex, 힌트가 없는 스테이지), `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`, `409 NOT_ENOUGH_ITEM`
 
 ---
 
 ## 5. 사용자 제작 맵
 
+플레이(상세 조회, 결과 제출, 순위)는 공식 스테이지와 같은 `/stages/{stageId}` API를 쓴다. 비공개 맵은 제작자만 조회·플레이할 수 있고(남은 `403`), 보상 코인은 항상 0이다.
+수정·공개 전환·삭제는 스테이지 행을 잠그고 처리하므로, 수정(기록 삭제)과 공개가 동시에 와도 검증되지 않은 맵이 공개되지 않는다.
+
 ### GET `/custom-stages?page=0&size=20`
 
-공개된 사용자 맵을 최신순으로 조회한다.
+공개된 사용자 맵을 최신순(만든 시각)으로 조회한다(`size` 1~50).
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -507,12 +518,13 @@ Redis에 저장된 Refresh Token을 지운다.
   "createdAt": "2026-11-20T03:12:00Z"
 }
 ```
+- `clearCount`: 이 맵을 클리어한 사용자 수(제작자 포함), `myCleared`: 내가 클리어했는지
 
 ---
 
 ### GET `/custom-stages/me`
 
-내가 만든 맵 목록. 비공개 맵도 포함한다.
+내가 만든 맵 목록. 비공개 맵도 포함하고 최근 수정 순으로 조회한다.
 
 **Response** `200 OK`
 ```json
@@ -535,7 +547,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | title | 1~100자 |
 | parMoves | 1~9999 |
-| mapData | 필수. 서버는 크기(최대 256KB)와 필수 키만 검사한다 |
+| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지, `hints`가 있으면 배열인지, 크기(UTF-8 최대 256KB)만 검사한다 |
 
 **Response** `201 Created`
 ```json
@@ -555,7 +567,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "stageId": 101, "isPublic": false, "verified": false }
 ```
 
-**Error**: `403 FORBIDDEN`, `409 PUBLISHED_STAGE`
+**Error**: `400 INVALID_INPUT`, `403 FORBIDDEN` (내 맵이 아님), `404 NOT_FOUND` (없거나 공식 스테이지), `409 PUBLISHED_STAGE`
 
 ---
 
@@ -566,12 +578,14 @@ Redis에 저장된 Refresh Token을 지운다.
 { "isPublic": true }
 ```
 
+비공개로는 언제든 바꿀 수 있다. 비공개로 바꿔도 기록은 남는다.
+
 **Response** `200 OK`
 ```json
-{ "stageId": 101, "isPublic": true }
+{ "stageId": 101, "isPublic": true, "verified": true }
 ```
 
-**Error**: `403 FORBIDDEN`, `409 NOT_VERIFIED` (클리어하지 않은 맵을 공개하려 함)
+**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`, `409 NOT_VERIFIED` (클리어하지 않은 맵을 공개하려 함)
 
 ---
 
@@ -581,7 +595,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Response** `204 No Content`
 
-**Error**: `403 FORBIDDEN`
+**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`
 
 ---
 
@@ -677,7 +691,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/mails?page=0&size=20`
 
-만료되지 않은 우편을 최신순으로 조회한다.
+만료되지 않은 우편을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 우편도 `claimed: true`로 남아 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -699,7 +713,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### POST `/mails/{mailId}/claim`
 
-**처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템 가격만큼 코인으로 바꿔서 준다.
+**처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템의 **현재 가격**만큼 코인으로 바꿔서 준다.
+- 잠금 순서는 우편 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
 
 **Response** `200 OK`
 ```json
@@ -712,15 +727,16 @@ Redis에 저장된 Refresh Token을 지운다.
 }
 ```
 - `convertedCoin`: 이미 가진 아이템을 코인으로 바꾼 금액. 바꾼 게 없으면 0
-- `rewardItem`: 실제로 지급된 아이템. 코인으로 바꿨다면 `null`
+- `rewardItem`: 실제로 지급된 아이템 `{ "itemId", "itemType", "quantity" }`. 첨부가 없거나 코인으로 바꿨다면 `null`
+- `totalCoin`: 받은 뒤 내 코인
 
-**Error**: `403 FORBIDDEN`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
+**Error**: `403 FORBIDDEN` (내 우편이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
 
 ---
 
 ### POST `/mails/claim-all`
 
-받을 수 있는 우편을 모두 받는다.
+받을 수 있는 우편을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 우편에 있으면 첫 우편에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
 
 **Response** `200 OK`
 ```json
@@ -733,6 +749,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/friends`
 
+닉네임 순으로 조회한다. `since`는 친구가 된 시각.
+
 **Response** `200 OK`
 ```json
 [
@@ -743,6 +761,8 @@ Redis에 저장된 Refresh Token을 지운다.
 ---
 
 ### DELETE `/friends/{userId}`
+
+친구 관계와 함께 두 사람 사이의 친구 요청 기록도 지운다. 그래서 나중에 다시 처음부터 요청할 수 있다.
 
 **Response** `204 No Content`
 
@@ -759,7 +779,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **처리**
 - 상대가 나에게 보낸 대기 중 요청이 있으면 그 요청을 수락 처리하고 바로 친구가 된다.
-- 내가 보냈다가 거절된 요청이 있으면 그 요청을 `PENDING`으로 되돌린다.
+- 내가 보냈다가 거절된 요청이 있으면 그 요청을 `PENDING`으로 되돌린다(같은 `requestId`, `createdAt`은 다시 보낸 시각).
+- 같은 두 사람 사이의 요청·수락·거절·취소·삭제는 두 사람의 프로필 행을 ID 순서대로 잠근 뒤 처리한다. A→B, B→A 요청이 동시에 와도 바로 친구가 된다.
 
 **Response** `201 Created`
 ```json
@@ -773,7 +794,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/friend-requests/received` · GET `/friend-requests/sent`
 
-대기 중(`PENDING`)인 요청만 조회한다.
+대기 중(`PENDING`)인 요청만 최근 순으로 조회한다.
 
 **Response** `200 OK`
 ```json
@@ -794,7 +815,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "requestId": 30, "status": "ACCEPTED" }
 ```
 
-**Error**: `403 FORBIDDEN`, `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 처리된 요청)
+**Error**: `403 FORBIDDEN` (나에게 온 요청이 아님), `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 처리됐거나 취소된 요청)
 
 ---
 
@@ -804,9 +825,13 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Response** `204 No Content`
 
+**Error**: `403 FORBIDDEN` (내가 보낸 요청이 아님), `404 NOT_FOUND`, `409 REQUEST_ALREADY_HANDLED` (이미 수락·거절된 요청)
+
 ---
 
 ### GET `/messages/rooms`
+
+마지막 메시지가 최근인 순으로 조회한다. 친구를 끊은 상대와의 대화도 남아 있다.
 
 **Response** `200 OK`
 ```json
@@ -824,12 +849,14 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/messages/{partnerId}?page=0&size=30`
 
-최신순으로 조회한다. 조회하면 상대가 나에게 보낸 메시지를 읽음 처리한다.
+최신순으로 조회한다(`sort` 파라미터는 무시). `size`는 1~50, 기본 30.
+조회하면 상대가 나에게 보낸 메시지를 **먼저** 읽음 처리하므로 응답의 `isRead`에도 바로 반영된다. 친구를 끊은 뒤에도 기존 대화는 볼 수 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
 { "messageId": 88, "senderId": 12, "content": "보스 스테이지 몇 턴에 깼어?", "isRead": true, "createdAt": "2026-11-20T03:12:00Z" }
 ```
+- `isRead`: 받는 사람이 읽었는지. 내가 보낸 메시지면 상대가 읽었는지를 뜻한다.
 
 ---
 
@@ -846,7 +873,7 @@ Redis에 저장된 Refresh Token을 지운다.
 { "messageId": 89, "createdAt": "2026-11-20T03:13:00Z" }
 ```
 
-**Error**: `409 NOT_FRIEND`
+**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다)
 
 ---
 
@@ -863,8 +890,14 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Response** `200 OK`
 ```json
-[ { "categoryId": 1, "name": "부적절한 닉네임" }, { "categoryId": 2, "name": "불량 맵" }, { "categoryId": 3, "name": "버그 제보" }, { "categoryId": 4, "name": "기타" } ]
+[
+  { "categoryId": 1, "name": "부적절한 닉네임", "targetRequired": true },
+  { "categoryId": 2, "name": "불량 맵", "targetRequired": true },
+  { "categoryId": 3, "name": "버그 제보", "targetRequired": false },
+  { "categoryId": 4, "name": "기타", "targetRequired": false }
+]
 ```
+- `targetRequired`: 신고 대상(사용자 또는 스테이지)을 꼭 지정해야 하는지. `report_categories`에 이를 나타내는 컬럼이 없어서 서버가 카테고리 **이름**(`버그 제보`, `기타`)으로 판단한다. 카테고리 이름을 바꾸면 서버 코드도 함께 바꿔야 한다.
 
 ---
 
@@ -880,17 +913,22 @@ Redis에 저장된 Refresh Token을 지운다.
   "comment": "문이 벽으로 막혀 있습니다."
 }
 ```
-- 버그 제보와 기타를 빼면 `targetUserId`와 `targetStageId` 중 하나는 꼭 있어야 한다.
+- 버그 제보와 기타를 빼면 `targetUserId`와 `targetStageId` 중 하나는 꼭 있어야 한다. **둘 다 지정할 수는 없다.**
+- 자기 자신은 신고할 수 없다. 남의 비공개 맵은 볼 수 없는 맵이므로 없는 스테이지(`404`)로 처리한다.
 - `title`은 1~255자, `comment`는 1~2000자.
 
 **Response** `201 Created`
 ```json
-{ "reportId": 7, "status": "RECEIVED" }
+{ "reportId": 7, "status": "RECEIVED", "handledAt": null }
 ```
+
+**Error**: `400 INVALID_INPUT` (대상 규칙, 자기 자신, 길이), `404 NOT_FOUND` (카테고리·대상 사용자·대상 스테이지)
 
 ---
 
 ### GET `/reports/me?page=0&size=20`
+
+최신순으로 조회한다(`size` 1~50).
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -903,22 +941,28 @@ Redis에 저장된 Refresh Token을 지운다.
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
 
+- 등록은 `201 Created`와 등록된 내용을, 수정은 `200 OK`와 수정된 내용을, 삭제는 `204 No Content`를 돌려준다.
+- 수정(PUT)은 모든 값을 보낸다. 문자열은 앞뒤 공백을 지우고, 선택 항목(설명, 이미지)이 빈 문자열이면 `null`로 저장한다.
+- 겹칠 수 없는 값이 겹치면 `409 DUPLICATE_VALUE`.
+
 | Method | URL | 설명 | 요청 본문 / 비고 |
 | --- | --- | --- | --- |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder` |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
-| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true) |
+| GET | `/admin/stages/{id}` | 공식 스테이지 상세 | 사용자용과 달리 `mapData`에 `hints`가 그대로 들어 있다 |
+| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보내고, `hints`가 있으면 배열이어야 한다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
 | POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment` |
 | PUT | `/admin/guidebooks/{id}` | 도감 수정 | 등록과 같음 |
 | DELETE | `/admin/guidebooks/{id}` | 도감 삭제 | 사용자의 해금 기록도 함께 삭제 |
-| POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price` |
-| PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`. 삭제 API는 두지 않는다 |
+| GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |
+| POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price`. 항상 판매 중으로 등록 |
+| PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`(필수). 가진 사용자가 있는 아이템은 `itemType`을 바꿀 수 없다(400). 삭제 API는 두지 않는다 |
 | POST | `/admin/mails` | 우편 발송 | 아래 참고 |
-| GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 신고자, 대상, 내용 포함 |
-| PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. `DONE`이면 `handledAt`을 기록 |
+| GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
+| PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 
 ### POST `/admin/mails`
 
@@ -935,8 +979,11 @@ Redis에 저장된 Refresh Token을 지운다.
   "expiresAt": "2026-12-31T14:59:59Z"
 }
 ```
-- `toAll`이 `true`면 `receiverIds`를 무시하고 모든 사용자에게 한 통씩 보낸다.
-- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다.
+- `toAll`이 `true`면 `receiverIds`를 무시하고 모든 사용자에게 한 통씩 보낸다. 아니면 `receiverIds`(최대 1000명, 중복은 한 번만)가 필요하고, 없는 사용자가 있으면 `404`(메시지에 그 ID 목록)로 아무에게도 보내지 않는다.
+- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다. 아이템이 있으면 스킨·테마는 1개, 힌트는 1~99개.
+- `rewardCoin`(0~1,000,000)과 `rewardItemQuantity`는 생략하면 0. `title`은 1~100자, `content`는 2000자 이하.
+- `expiresAt`은 `null`(무기한)이거나 지금보다 뒤여야 한다.
+- 받는 사람 수와 상관없이 `INSERT ... SELECT` 한 문장으로 넣는다.
 
 **Response** `201 Created`
 ```json

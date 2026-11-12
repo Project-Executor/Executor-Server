@@ -11,4 +11,6 @@ public interface GuidebookRepository extends JpaRepository<Guidebook, Long> {
     List<Guidebook> findAllByOrderByIdAsc();
 
     List<Guidebook> findAllByCategoryOrderByIdAsc(GuidebookCategory category);
+
+    boolean existsByTitleAndIdNot(String title, Long id);
 }

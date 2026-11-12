@@ -14,6 +14,9 @@ import java.util.Optional;
 
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
+    /** 이 아이템을 가진 사용자가 한 명이라도 있는지 (다 쓴 힌트 포함) */
+    boolean existsByItemId(Long itemId);
+
     /** 보유 아이템 한 건 (아이템 정보 포함) */
     @EntityGraph(attributePaths = "item")
     Optional<UserItem> findByUserIdAndItemId(Long userId, Long itemId);
@@ -67,4 +70,30 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
             """, nativeQuery = true)
     void addQuantity(@Param("userId") Long userId, @Param("itemId") Long itemId,
                      @Param("quantity") int quantity, @Param("now") Instant now);
+
+    /**
+     * 힌트 아이템 1개를 쓴다. 힌트 종류가 여러 개면 아이템 ID가 가장 작은 것부터 쓴다.
+     * 수량 확인(quantity > 0)과 차감이 한 문장이라 동시 요청에도 수량이 음수가 되지 않는다.
+     *
+     * @return 썼으면 1, 남은 힌트가 없으면 0
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE user_items
+            SET quantity = quantity - 1
+            WHERE user_id = :userId
+              AND quantity > 0
+              AND item_id IN (SELECT id FROM items WHERE item_type = 'HINT')
+            ORDER BY item_id
+            LIMIT 1
+            """, nativeQuery = true)
+    int useOneHint(@Param("userId") Long userId);
+
+    /** 가진 힌트 아이템의 총 수량 (힌트 종류가 여러 개면 합친다) */
+    @Query("""
+            select coalesce(sum(ui.quantity), 0) from UserItem ui
+            where ui.user.id = :userId
+              and ui.item.itemType = com.seyoung5309.executorserver.domain.item.entity.ItemType.HINT
+            """)
+    long sumHintQuantity(@Param("userId") Long userId);
 }

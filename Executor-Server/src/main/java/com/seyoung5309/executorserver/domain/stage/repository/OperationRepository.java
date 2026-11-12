@@ -8,4 +8,8 @@ import java.util.List;
 public interface OperationRepository extends JpaRepository<Operation, Long> {
 
     List<Operation> findAllByOrderBySortOrderAsc();
+
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    boolean existsBySortOrderAndIdNot(int sortOrder, Long id);
 }
