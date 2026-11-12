@@ -45,6 +45,15 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
             """, nativeQuery = true)
     List<Long> lockPair(@Param("a") Long a, @Param("b") Long b);
 
+    /**
+     * 한 사용자의 프로필 행을 잠근다 (SELECT ... FOR UPDATE). 트랜잭션 안에서 호출해야 한다.
+     * 같은 사용자의 동시 요청을 한 번에 하나씩 처리하기 위해 쓴다 (예: 힌트 사용).
+     *
+     * @return 잠근 사용자 ID (없는 사용자면 빈 값)
+     */
+    @Query(value = "SELECT user_id FROM profiles WHERE user_id = :userId FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockOne(@Param("userId") Long userId);
+
     @Query("select p.coin from Profile p where p.userId = :userId")
     Optional<Integer> findCoinByUserId(@Param("userId") Long userId);
 

@@ -50,9 +50,10 @@ public class StageController {
     }
 
     @Operation(summary = "힌트 사용",
-            description = "힌트 아이템 1개를 쓰고 hints[hintIndex]를 받는다. 이미 본 힌트를 다시 요청해도 1개가 빠지므로 "
-                    + "받은 힌트는 클라이언트가 기억해 둘 것. 범위를 벗어난 hintIndex는 400(아이템은 빠지지 않음), "
-                    + "힌트 아이템이 없으면 409 NOT_ENOUGH_ITEM.")
+            description = "hints[hintIndex]를 받는다. 처음 보는 힌트면 힌트 아이템 1개를 쓰고(charged=true), "
+                    + "이미 본 힌트는 무료로 다시 받는다(charged=false, 아이템이 0개여도 됨). "
+                    + "본 힌트 번호는 스테이지 상세의 viewedHintIndexes에 있다. 범위를 벗어난 hintIndex는 400(아이템은 빠지지 않음), "
+                    + "처음 보는 힌트인데 아이템이 없으면 409 NOT_ENOUGH_ITEM.")
     @PostMapping("/{stageId}/hint")
     public HintResponse useHint(@LoginUser Long userId,
                                 @PathVariable Long stageId,

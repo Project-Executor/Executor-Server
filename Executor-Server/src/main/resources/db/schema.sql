@@ -8,6 +8,8 @@
 --    운영 DB에 실수로 실행해도 기존 데이터는 지워지지 않는다.
 --  - 개발·테스트 DB를 처음부터 다시 만들려면 먼저 reset-dev.sql을 실행한다
 --    (DB 이름에 test 또는 dev가 들어간 DB에서만 동작한다).
+--  - 이 파일은 항상 최신 구조다. 이미 운영 중인 DB에 구조를 바꿀 때는 이 파일을 고치고,
+--    같은 변경을 migrations/YYYY-MM-DD_설명.sql로 따로 만들어 운영 DB에 그 파일만 실행한다.
 --
 -- [공통 규칙]
 --  - 모든 PK는 BIGINT AUTO_INCREMENT (JPA의 Long과 매핑)
@@ -232,6 +234,27 @@ CREATE TABLE user_stages (
     CONSTRAINT fk_user_stages_stage
         FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 스테이지 기록';
+
+
+-- 사용자가 본 힌트
+--  - 한 번 본 힌트는 다시 요청해도 힌트 아이템을 쓰지 않는다 (처음 INSERT될 때만 차감)
+--  - 사용자 맵을 수정하면 그 맵의 플레이 기록과 함께 지운다
+CREATE TABLE user_stage_hints (
+    id          BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    user_id     BIGINT     NOT NULL                COMMENT '사용자 ID',
+    stage_id    BIGINT     NOT NULL                COMMENT '스테이지 ID',
+    hint_index  INT        NOT NULL                COMMENT 'map_data.hints 배열 번호 (0부터)',
+    viewed_at   DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '처음 본 날짜',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_stage_hints (user_id, stage_id, hint_index),
+    KEY idx_user_stage_hints_stage (stage_id),
+    CONSTRAINT chk_user_stage_hints_index CHECK (hint_index >= 0),
+    CONSTRAINT fk_user_stage_hints_user
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_stage_hints_stage
+        FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자가 본 힌트';
 
 
 -- =====================================================================

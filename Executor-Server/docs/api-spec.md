@@ -385,6 +385,7 @@ Redis에 저장된 Refresh Token을 지운다.
   "parMoves": 20,
   "rewardCoin": 50,
   "hintCount": 1,
+  "viewedHintIndexes": [],
   "mapData": { "...": "map_data JSON에서 hints 필드를 뺀 나머지" },
   "myRecord": {
     "cleared": false,
@@ -396,6 +397,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 - `creator`: 공식 스테이지는 `null`, 사용자 맵은 `UserSummary`
 - `hintCount`: 이 스테이지에서 받을 수 있는 힌트 개수
+- `viewedHintIndexes`: 내가 이미 본 힌트 번호(오름차순). 이 번호는 힌트 API로 다시 받아도 아이템이 빠지지 않는다
 
 **Error**: `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`
 
@@ -473,7 +475,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### POST `/stages/{stageId}/hint`
 
-힌트 아이템 1개를 써서 이 스테이지의 다음 힌트를 받는다.
+이 스테이지의 힌트 하나를 받는다. 처음 보는 힌트면 힌트 아이템 1개를 쓰고, 이미 본 힌트는 무료로 다시 받는다.
 
 **Request**
 ```json
@@ -482,18 +484,22 @@ Redis에 저장된 Refresh Token을 지운다.
 - `hintIndex`: 0부터 `hintCount - 1`까지
 
 **처리**
+- 본 힌트는 `user_stage_hints`에 (사용자, 스테이지, 힌트 번호)로 기록한다. 처음 기록될 때만 아이템을 쓴다.
 - 힌트 아이템 수량 확인과 1개 차감을 조건부 UPDATE 한 문장으로 처리한다. 힌트 아이템이 여러 종류면 아이템 ID가 작은 것부터 쓴다.
-- 어떤 힌트를 봤는지는 저장하지 않는다. 같은 힌트를 다시 요청해도 아이템이 1개 빠지므로, 받은 힌트는 클라이언트가 기억해 둔다.
+- 같은 사용자의 힌트 요청은 프로필 행을 잠가 하나씩 처리한다. 같은 힌트를 동시에 요청해도 아이템은 1개만 빠진다.
+- 처음 보는 힌트인데 아이템이 없으면 409이고, 열람 기록도 남지 않는다.
+- 사용자 맵을 수정하면 그 맵의 힌트 열람 기록도 지워진다. 공식 스테이지는 관리자가 힌트를 바꿔도 기록이 남는다(같은 번호는 계속 무료).
 - `hintIndex` 범위 검사와 스테이지 접근 검사가 먼저다. 이 오류들로는 아이템이 빠지지 않는다.
 
 **Response** `200 OK`
 ```json
-{ "hintIndex": 0, "content": "열쇠는 오른쪽 벽 너머에 있다.", "remainingHintItems": 2 }
+{ "hintIndex": 0, "content": "열쇠는 오른쪽 벽 너머에 있다.", "charged": true, "remainingHintItems": 2 }
 ```
 - `content`: `map_data.hints[hintIndex]` 그대로. 문자열이 아니라 객체로 저장했다면 객체로 나간다(키 순서는 보장하지 않음).
-- `remainingHintItems`: 쓰고 남은 힌트 아이템 수(여러 종류면 합계)
+- `charged`: 이번 요청으로 아이템을 썼으면 `true`, 이미 본 힌트라 무료였으면 `false`
+- `remainingHintItems`: 남은 힌트 아이템 수(여러 종류면 합계)
 
-**Error**: `400 INVALID_INPUT` (범위를 벗어난 hintIndex, 힌트가 없는 스테이지), `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`, `409 NOT_ENOUGH_ITEM`
+**Error**: `400 INVALID_INPUT` (범위를 벗어난 hintIndex, 힌트가 없는 스테이지), `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`, `409 NOT_ENOUGH_ITEM` (처음 보는 힌트인데 아이템이 없음)
 
 ---
 
@@ -558,7 +564,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### PUT `/custom-stages/{stageId}`
 
-비공개 맵만 수정할 수 있다. 수정하면 이 맵의 기록이 모두 지워지므로 다시 클리어해야 공개할 수 있다.
+비공개 맵만 수정할 수 있다. 수정하면 이 맵의 기록과 힌트 열람 기록이 모두 지워지므로 다시 클리어해야 공개할 수 있다.
 
 **Request**: `POST /custom-stages`와 같은 형식
 
