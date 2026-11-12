@@ -5,9 +5,9 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import com.seyoung5309.executorserver.global.jpa.CreatedAtSeconds;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
+import com.seyoung5309.executorserver.global.jpa.UpdatedAtSeconds;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
@@ -61,11 +61,11 @@ public class Stage {
     @Column(nullable = false)
     private boolean isPublic;
 
-    @CreationTimestamp
+    @CreatedAtSeconds
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    @UpdateTimestamp
+    @UpdatedAtSeconds
     @Column(nullable = false)
     private Instant updatedAt;
 

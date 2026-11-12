@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import com.seyoung5309.executorserver.global.jpa.CreatedAtSeconds;
 
 import java.time.Instant;
 
@@ -30,7 +30,7 @@ public class Friend {
     @JoinColumn(name = "friend_id", nullable = false)
     private User friend;
 
-    @CreationTimestamp
+    @CreatedAtSeconds
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 }
