@@ -3,6 +3,12 @@
 -- =====================================================================
 -- 대상: Railway MySQL (MySQL 8.0.16 이상, CHECK 제약 사용)
 --
+-- [실행 방법]
+--  - 빈 DB에 처음 한 번만 실행한다. 테이블이 이미 있으면 첫 CREATE TABLE에서 오류가 나고 멈추므로
+--    운영 DB에 실수로 실행해도 기존 데이터는 지워지지 않는다.
+--  - 개발·테스트 DB를 처음부터 다시 만들려면 먼저 reset-dev.sql을 실행한다
+--    (DB 이름에 test 또는 dev가 들어간 DB에서만 동작한다).
+--
 -- [공통 규칙]
 --  - 모든 PK는 BIGINT AUTO_INCREMENT (JPA의 Long과 매핑)
 --  - 문자셋 utf8mb4, 시간은 UTC로 저장 (JDBC URL에 serverTimezone=UTC, 앱에서 변환)
@@ -19,7 +25,7 @@
 --  4. stages: 사용자 맵은 제작자가 직접 클리어한 기록(user_stages)이 있어야 is_public = TRUE 가능
 --  5. profiles: equipped_*_id는 본인이 보유한 해당 종류(SKIN/THEME) 아이템만
 --  6. mails: reward_item_id가 NULL이면 reward_item_quantity = 0
---  7. reports: 카테고리가 버그 제보가 아니면 target_user_id / target_stage_id 중 하나 이상 필수
+--  7. reports: 버그 제보·기타가 아니면 target_user_id / target_stage_id 중 하나 필수 (둘 다 지정 불가)
 --
 -- [동시성: 보상 중복 지급 방지 패턴]
 --  첫 클리어 보상 : UPDATE user_stages SET first_cleared_at = NOW()
@@ -32,27 +38,6 @@
 -- =====================================================================
 
 SET NAMES utf8mb4;
-
--- ---------------------------------------------------------------------
--- 개발용 초기화 (운영 DB에서는 이 블록을 실행하지 말 것!)
--- ---------------------------------------------------------------------
-SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS reports;
-DROP TABLE IF EXISTS report_categories;
-DROP TABLE IF EXISTS mails;
-DROP TABLE IF EXISTS user_items;
-DROP TABLE IF EXISTS user_guidebooks;
-DROP TABLE IF EXISTS guidebooks;
-DROP TABLE IF EXISTS user_stages;
-DROP TABLE IF EXISTS stages;
-DROP TABLE IF EXISTS operations;
-DROP TABLE IF EXISTS messages;
-DROP TABLE IF EXISTS friend_requests;
-DROP TABLE IF EXISTS friends;
-DROP TABLE IF EXISTS profiles;
-DROP TABLE IF EXISTS items;
-DROP TABLE IF EXISTS users;
-SET FOREIGN_KEY_CHECKS = 1;
 
 
 -- =====================================================================
@@ -388,11 +373,12 @@ CREATE TABLE reports (
 -- 7. 기초 데이터
 -- =====================================================================
 
-INSERT INTO report_categories (name) VALUES
+-- INSERT IGNORE: 이미 있으면 건너뛴다 (UNIQUE name)
+INSERT IGNORE INTO report_categories (name) VALUES
     ('부적절한 닉네임'),
     ('불량 맵'),
     ('버그 제보'),
     ('기타');
 
-INSERT INTO operations (name, description, sort_order) VALUES
+INSERT IGNORE INTO operations (name, description, sort_order) VALUES
     ('Tutorial', '홀로그램 시뮬레이션', 0);
