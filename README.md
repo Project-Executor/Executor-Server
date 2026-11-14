@@ -108,7 +108,7 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 | 파일 | 내용 | 운영 DB 적용 |
 | --- | --- | --- |
 | `2026-11-12_user_stage_hints.sql` | 힌트 열람 기록 테이블 (한 번 본 힌트는 무료) | 2026-11-12 |
-| `2026-11-15_rename_accounts_users.sql` | 테이블 이름 변경 `users` → `accounts`, `profiles` → `users` (제약 조건 이름 포함) | 미적용 (배포 직전에 실행) |
+| `2026-11-15_rename_accounts_users.sql` | 테이블 이름 변경 `users` → `accounts`, `profiles` → `users` (제약 조건 이름 포함) | 2026-11-15 |
 
 ## 배포 (Railway)
 
