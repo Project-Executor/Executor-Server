@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Executor API Tester</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #dde1e6; --text: #1d2430; --muted: #687385;
+    --accent: #2f6fde; --accent-weak: #e8f0fd; --ok: #1f8a4c; --warn: #b7791f; --err: #c53030;
+    --code-bg: #f1f3f6; --get: #2f6fde; --post: #1f8a4c; --put: #b7791f; --patch: #7c4dce; --delete: #c53030;
+    --radius: 8px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "D2Coding", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1a1f26; --line: #2c333d; --text: #e3e7ed; --muted: #95a0b0;
+      --accent: #6aa0ff; --accent-weak: #1f2b40; --ok: #4cc27e; --warn: #e0a84a; --err: #f07070;
+      --code-bg: #141920; --get: #6aa0ff; --post: #4cc27e; --put: #e0a84a; --patch: #b08cf0; --delete: #f07070;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px;
+           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  .grow { flex: 1; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 12px; padding: 12px 16px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+  .stack > * + * { margin-top: 12px; }
+  input, textarea, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+                            border-radius: 6px; padding: 6px 8px; width: 100%; }
+  textarea { font-family: var(--mono); font-size: 12.5px; min-height: 180px; resize: vertical; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > label { min-width: 110px; color: var(--muted); font-size: 12.5px; }
+  .row > input { flex: 1; min-width: 140px; }
+  .muted { color: var(--muted); font-size: 12.5px; }
+  .badge { display: inline-block; font: 600 11px var(--mono); padding: 1px 6px; border-radius: 4px; color: #fff; min-width: 52px; text-align: center; }
+  .GET { background: var(--get); } .POST { background: var(--post); } .PUT { background: var(--put); }
+  .PATCH { background: var(--patch); } .DELETE { background: var(--delete); }
+  .ops { max-height: calc(100vh - 330px); overflow: auto; margin: 0 -4px; }
+  .group-title { font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 4px 4px; }
+  .op { display: flex; gap: 8px; align-items: baseline; padding: 5px 4px; border-radius: 6px; cursor: pointer; }
+  .op:hover { background: var(--accent-weak); }
+  .op.active { background: var(--accent-weak); outline: 1px solid var(--accent); }
+  .op .path { font: 12px var(--mono); word-break: break-all; }
+  .op .sum { display: block; color: var(--muted); font-size: 12px; }
+  .status { font-weight: 600; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--err); } .status.warn { color: var(--warn); }
+  pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+        font: 12.5px/1.45 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto; }
+  .k { color: var(--accent); } .s { color: var(--ok); } .n { color: var(--warn); } .b { color: var(--patch); } .z { color: var(--muted); }
+  .auth-state { font-size: 12.5px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--accent-weak); color: var(--accent); font-size: 12px; }
+  .history { max-height: 220px; overflow: auto; }
+  .history div { display: flex; gap: 6px; align-items: center; padding: 3px 0; cursor: pointer; font-size: 12px; }
+  .history div:hover { color: var(--accent); }
+  .desc { white-space: pre-wrap; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Executor API Tester</h1>
+  <span class="muted" id="server"></span>
+  <span class="grow"></span>
+  <span class="auth-state" id="authState">로그인 안 됨</span>
+  <button class="small" id="btnReissue">토큰 재발급</button>
+  <button class="small" id="btnLogout">로그아웃</button>
+</header>
+
+<div class="layout">
+  <aside class="stack">
+    <section class="panel stack">
+      <h2>로그인</h2>
+      <div class="row"><input id="email" placeholder="이메일" autocomplete="username"></div>
+      <div class="row"><input id="password" type="password" placeholder="비밀번호" autocomplete="current-password"></div>
+      <div class="row">
+        <button class="primary" id="btnLogin">로그인</button>
+        <button id="btnTestAccount" title="zz-tester-...@example.com 계정을 만들고 로그인">테스트 계정 만들기</button>
+      </div>
+      <p class="muted" style="margin:0">운영 DB를 쓰는 서버입니다. 테스트 데이터는 <code>zz-</code>로 시작하는 이름으로 만들고 끝나면 지워 주세요.</p>
+    </section>
+
+    <section class="panel">
+      <h2>API 목록 <span class="muted" id="opCount"></span></h2>
+      <input id="filter" placeholder="검색 (경로, 설명, 분류)">
+      <div class="ops" id="ops"><p class="muted">불러오는 중...</p></div>
+    </section>
+
+    <section class="panel">
+      <h2>요청 기록</h2>
+      <div class="history" id="history"><p class="muted" style="margin:0">아직 없음</p></div>
+    </section>
+  </aside>
+
+  <main class="stack">
+    <section class="panel stack" id="opPanel">
+      <div class="row">
+        <span class="badge" id="opMethod">-</span>
+        <strong id="opPath" style="font-family:var(--mono)">왼쪽에서 API를 고르세요</strong>
+      </div>
+      <div id="opSummary"></div>
+      <div id="params" class="stack"></div>
+      <div id="bodyWrap" class="stack hidden">
+        <div class="row">
+          <h2 style="margin:0">요청 본문 (JSON)</h2>
+          <span class="grow"></span>
+          <button class="small" id="btnExample">예시로 되돌리기</button>
+          <button class="small" id="btnFormat">정렬</button>
+          <label class="small"><button class="small" type="button" id="btnLoadFile">파일 불러오기</button>
+            <input type="file" id="fileInput" accept=".json,application/json" class="hidden"></label>
+        </div>
+        <textarea id="body" spellcheck="false"></textarea>
+        <p class="muted" id="bodyHint" style="margin:0"></p>
+      </div>
+      <div class="row">
+        <label style="min-width:auto"><input type="checkbox" id="useToken" style="width:auto"> Access Token 붙이기</label>
+        <label style="min-width:auto"><input type="checkbox" id="autoReissue" checked style="width:auto"> 만료 시 자동 재발급</label>
+        <span class="grow"></span>
+        <button class="primary" id="btnSend" disabled>보내기</button>
+      </div>
+    </section>
+
+    <section class="panel stack">
+      <div class="row">
+        <h2 style="margin:0">응답</h2>
+        <span id="respStatus" class="status"></span>
+        <span id="respTime" class="muted"></span>
+        <span class="grow"></span>
+        <button class="small" id="btnCopy">복사</button>
+      </div>
+      <div class="muted" id="respUrl"></div>
+      <pre id="resp" class="z">요청을 보내면 여기에 응답이 나옵니다.</pre>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const ORIGIN = location.origin;
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* 저장 불가 환경 */ } },
+  };
+  const state = {
+    spec: null, ops: [], current: null, history: [],
+    access: store.get("tester.access"), refresh: store.get("tester.refresh"),
+    user: JSON.parse(store.get("tester.user") || "null"), expiresAt: Number(store.get("tester.expiresAt") || 0),
+  };
+  let refreshing = null;
+
+  $("server").textContent = ORIGIN;
+
+  // ---------------- 토큰 ----------------
+  function saveTokens(t, user) {
+    state.access = t.accessToken; state.refresh = t.refreshToken;
+    state.expiresAt = Date.now() + (t.accessTokenExpiresIn || 0) * 1000;
+    if (user) state.user = user;
+    store.set("tester.access", state.access); store.set("tester.refresh", state.refresh);
+    store.set("tester.expiresAt", String(state.expiresAt)); store.set("tester.user", JSON.stringify(state.user));
+    renderAuth();
+  }
+  function clearTokens() {
+    state.access = state.refresh = state.user = null; state.expiresAt = 0;
+    ["tester.access", "tester.refresh", "tester.expiresAt", "tester.user"].forEach((k) => store.set(k, null));
+    renderAuth();
+  }
+  function renderAuth() {
+    const el = $("authState");
+    if (!state.refresh) { el.textContent = "로그인 안 됨"; return; }
+    const left = Math.max(0, Math.round((state.expiresAt - Date.now()) / 1000));
+    const who = state.user ? `${state.user.nickname} (#${state.user.userId}, ${state.user.role})` : "로그인됨";
+    el.innerHTML = "";
+    el.append(document.createTextNode(who + " "));
+    const pill = document.createElement("span");
+    pill.className = "pill";
+    pill.textContent = left > 0 ? `Access ${Math.floor(left / 60)}분 ${left % 60}초 남음` : "Access 만료";
+    el.append(pill);
+  }
+  setInterval(renderAuth, 1000);
+
+  // ---------------- 요청 ----------------
+  async function rawSend(method, url, body, token) {
+    const headers = { Accept: "application/json" };
+    if (body !== undefined) headers["Content-Type"] = "application/json; charset=utf-8";
+    if (token) headers.Authorization = "Bearer " + token;
+    const started = performance.now();
+    let res, text;
+    try {
+      res = await fetch(url, { method, headers, body: body === undefined ? undefined : body });
+      text = await res.text();
+    } catch (e) {
+      return { status: 0, text: String(e), ms: Math.round(performance.now() - started), json: null };
+    }
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { /* JSON 아님 */ }
+    return { status: res.status, text, json, ms: Math.round(performance.now() - started) };
+  }
+
+  function reissue() {
+    if (!state.refresh) return Promise.resolve(false);
+    refreshing ??= (async () => {
+      const r = await rawSend("POST", ORIGIN + "/api/auth/reissue", JSON.stringify({ refreshToken: state.refresh }));
+      if (r.status === 200 && r.json) { saveTokens(r.json); return true; }
+      if (r.status === 401) clearTokens();
+      return false;
+    })().finally(() => { refreshing = null; });
+    return refreshing;
+  }
+
+  async function send(method, path, bodyText, useToken) {
+    const url = ORIGIN + path;
+    let tokenUsed = useToken ? state.access : null;
+    if (useToken && !tokenUsed && state.refresh) { await reissue(); tokenUsed = state.access; }
+    let r = await rawSend(method, url, bodyText, tokenUsed);
+    let reissued = false;
+    if (useToken && $("autoReissue").checked && r.status === 401 && r.json?.code === "TOKEN_EXPIRED") {
+      if (await reissue()) { reissued = true; r = await rawSend(method, url, bodyText, state.access); }
+    }
+    // 로그인·재발급 응답이면 토큰 저장, 로그아웃·탈퇴 성공이면 삭제
+    if (r.status === 200 && r.json?.accessToken) saveTokens(r.json, path === "/api/auth/login" ? r.json.user : null);
+    if ((path === "/api/auth/logout" || (path === "/api/users/me" && method === "DELETE")) && r.status === 204) clearTokens();
+    return { ...r, url, reissued };
+  }
+
+  // ---------------- OpenAPI 읽기 ----------------
+  function resolve(schema) {
+    if (schema && schema.$ref) return state.spec.components.schemas[schema.$ref.split("/").pop()];
+    return schema;
+  }
+  const SAMPLE_MAP = {
+    version: 1, theme: "hologram", width: 5, height: 3,
+    tiles: ["#####", "#...#", "#####"],
+    player: { x: 1, y: 1 },
+    objects: [{ id: "exit1", type: "exit", x: 3, y: 1 }],
+    hints: ["zz 테스트 힌트"],
+  };
+  function example(schema, name, depth = 0) {
+    if (schema?.$ref?.endsWith("/JsonNode")) return structuredClone(SAMPLE_MAP);
+    const s = resolve(schema) || {};
+    if (depth > 6) return null;
+    if (s.example !== undefined) return s.example;
+    if (s.default !== undefined) return s.default;
+    if (s.enum) return s.enum[0];
+    const type = Array.isArray(s.type) ? s.type.find((t) => t !== "null") : s.type;
+    if (type === "object" || s.properties) {
+      const out = {};
+      for (const [k, v] of Object.entries(s.properties || {})) out[k] = example(v, k, depth + 1);
+      return out;
+    }
+    if (type === "array") return [example(s.items, name, depth + 1)];
+    if (type === "integer" || type === "number") return s.minimum ?? 1;
+    if (type === "boolean") return false;
+    if (type === "string") {
+      if (s.format === "date-time") return new Date(Date.now() + 86400000).toISOString().replace(/\.\d+Z$/, "Z");
+      if (s.format === "email" || /email/i.test(name)) return `zz-tester-${Date.now()}@example.com`;
+      if (/password/i.test(name)) return "password123!";
+      if (/nickname/i.test(name)) return "zz" + String(Date.now()).slice(-8);
+      if (/title|name/i.test(name)) return "zz-테스트";
+      return "zz-테스트";
+    }
+    return null;
+  }
+  const isPublic = (path) => (path.startsWith("/api/auth/") && path !== "/api/auth/logout")
+                             || path === "/api/profiles/check-nickname";
+
+  async function loadSpec() {
+    const r = await rawSend("GET", ORIGIN + "/v3/api-docs");
+    if (r.status !== 200 || !r.json) {
+      $("ops").innerHTML = `<p class="status err">API 문서를 불러오지 못했습니다 (${r.status}). ${ORIGIN}/v3/api-docs 를 확인하세요.</p>`;
+      return;
+    }
+    state.spec = r.json;
+    const tagOrder = (state.spec.tags || []).map((t) => t.name);
+    for (const [path, item] of Object.entries(state.spec.paths)) {
+      for (const [method, op] of Object.entries(item)) {
+        if (!["get", "post", "put", "patch", "delete"].includes(method)) continue;
+        state.ops.push({ method: method.toUpperCase(), path, op, tag: (op.tags || ["기타"])[0] });
+      }
+    }
+    const tagIndex = (t) => { const i = tagOrder.indexOf(t); return i < 0 ? 999 : i; };
+    const methodOrder = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+    state.ops.sort((a, b) => tagIndex(a.tag) - tagIndex(b.tag) || a.tag.localeCompare(b.tag)
+      || a.path.localeCompare(b.path) || methodOrder.indexOf(a.method) - methodOrder.indexOf(b.method));
+    $("opCount").textContent = `${state.ops.length}개`;
+    renderOps();
+  }
+
+  function renderOps() {
+    const q = $("filter").value.trim().toLowerCase();
+    const box = $("ops");
+    box.innerHTML = "";
+    let lastTag = null;
+    for (const o of state.ops) {
+      const text = `${o.method} ${o.path} ${o.op.summary || ""} ${o.tag}`.toLowerCase();
+      if (q && !text.includes(q)) continue;
+      if (o.tag !== lastTag) {
+        const t = document.createElement("div");
+        t.className = "group-title"; t.textContent = o.tag;
+        box.append(t); lastTag = o.tag;
+      }
+      const el = document.createElement("div");
+      el.className = "op" + (state.current === o ? " active" : "");
+      el.innerHTML = `<span class="badge ${o.method}">${o.method}</span><span><span class="path"></span><span class="sum"></span></span>`;
+      el.querySelector(".path").textContent = o.path.replace(/^\/api/, "") + (o.path.startsWith("/api/admin") ? " 🛡" : "");
+      el.querySelector(".sum").textContent = o.op.summary || "";
+      el.onclick = () => select(o);
+      box.append(el);
+    }
+    if (!box.children.length) box.innerHTML = '<p class="muted">검색 결과 없음</p>';
+  }
+
+  function select(o, preset) {
+    state.current = o;
+    renderOps();
+    $("opMethod").textContent = o.method; $("opMethod").className = "badge " + o.method;
+    $("opPath").textContent = o.path;
+    const sum = $("opSummary");
+    sum.innerHTML = "";
+    if (o.op.summary) { const b = document.createElement("strong"); b.textContent = o.op.summary; sum.append(b); }
+    if (o.op.description) { const d = document.createElement("div"); d.className = "muted desc"; d.textContent = o.op.description; sum.append(d); }
+
+    const params = $("params");
+    params.innerHTML = "";
+    for (const p of o.op.parameters || []) {
+      if (!["path", "query"].includes(p.in)) continue;
+      const s = resolve(p.schema) || {};
+      const row = document.createElement("div");
+      row.className = "row";
+      const label = document.createElement("label");
+      label.textContent = `${p.name}${p.required ? " *" : ""} (${p.in})`;
+      const input = document.createElement(s.enum ? "select" : "input");
+      input.dataset.name = p.name; input.dataset.in = p.in;
+      if (s.enum) {
+        input.append(new Option("", ""));
+        s.enum.forEach((v) => input.append(new Option(v, v)));
+      }
+      input.value = preset?.params?.[p.name] ?? (s.default ?? "");
+      input.placeholder = [s.type, s.minimum !== undefined ? `최소 ${s.minimum}` : "", s.maximum !== undefined ? `최대 ${s.maximum}` : ""].filter(Boolean).join(", ");
+      row.append(label, input);
+      params.append(row);
+    }
+
+    const bodySchema = o.op.requestBody?.content?.["application/json"]?.schema;
+    $("bodyWrap").classList.toggle("hidden", !bodySchema);
+    if (bodySchema) {
+      $("body").value = preset?.body ?? JSON.stringify(example(bodySchema, ""), null, 2);
+      const s = resolve(bodySchema);
+      $("bodyHint").textContent = s?.required ? "필수 필드: " + s.required.join(", ") : "";
+    }
+    $("useToken").checked = preset?.useToken ?? !isPublic(o.path);
+    $("btnSend").disabled = false;
+  }
+
+  // ---------------- 응답 표시 ----------------
+  function highlight(json) {
+    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return esc(JSON.stringify(json, null, 2)).replace(
+      /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+      (m) => {
+        let cls = "n";
+        if (m.startsWith('"')) cls = m.endsWith(":") ? "k" : "s";
+        else if (m === "true" || m === "false") cls = "b";
+        else if (m === "null") cls = "z";
+        return `<span class="${cls}">${m}</span>`;
+      });
+  }
+  function showResponse(method, r) {
+    const st = $("respStatus");
+    st.textContent = r.status === 0 ? "연결 실패" : `${r.status}${r.json?.code ? " " + r.json.code : ""}`;
+    st.className = "status " + (r.status >= 200 && r.status < 300 ? "ok" : r.status >= 400 || r.status === 0 ? "err" : "warn");
+    $("respTime").textContent = `${r.ms}ms${r.reissued ? " · 토큰 재발급 후 재요청" : ""}`;
+    $("respUrl").textContent = `${method} ${r.url}`;
+    const pre = $("resp");
+    if (r.json !== null) { pre.className = ""; pre.innerHTML = highlight(r.json); }
+    else { pre.className = r.text ? "" : "z"; pre.textContent = r.text || (r.status === 204 ? "(본문 없음: 204 No Content)" : "(본문 없음)"); }
+  }
+
+  // ---------------- 이벤트 ----------------
+  $("filter").oninput = renderOps;
+
+  $("btnSend").onclick = async () => {
+    const o = state.current;
+    if (!o) return;
+    let path = o.path;
+    const query = new URLSearchParams();
+    const paramValues = {};
+    for (const input of $("params").querySelectorAll("[data-name]")) {
+      const v = input.value.trim();
+      paramValues[input.dataset.name] = v;
+      if (input.dataset.in === "path") {
+        if (!v) { alert(`${input.dataset.name} 값을 넣어 주세요.`); return; }
+        path = path.replace(`{${input.dataset.name}}`, encodeURIComponent(v));
+      } else if (v !== "") query.append(input.dataset.name, v);
+    }
+    const qs = query.toString();
+    let body;
+    if (!$("bodyWrap").classList.contains("hidden")) {
+      body = $("body").value;
+      try { JSON.parse(body); } catch (e) { alert("요청 본문이 올바른 JSON이 아닙니다.\n" + e.message); return; }
+    }
+    $("btnSend").disabled = true;
+    try {
+      const r = await send(o.method, path + (qs ? "?" + qs : ""), body, $("useToken").checked);
+      showResponse(o.method, r);
+      addHistory(o, r, { params: paramValues, body, useToken: $("useToken").checked });
+    } finally {
+      $("btnSend").disabled = false;
+    }
+  };
+
+  function addHistory(o, r, preset) {
+    state.history.unshift({ o, status: r.status, preset, at: new Date() });
+    state.history = state.history.slice(0, 30);
+    const box = $("history");
+    box.innerHTML = "";
+    for (const h of state.history) {
+      const el = document.createElement("div");
+      const ok = h.status >= 200 && h.status < 300;
+      el.innerHTML = `<span class="badge ${h.o.method}">${h.o.method}</span><span class="status ${ok ? "ok" : "err"}">${h.status || "ERR"}</span><span class="path"></span>`;
+      el.querySelector(".path").textContent = h.o.path.replace(/^\/api/, "");
+      el.title = h.at.toLocaleTimeString();
+      el.onclick = () => select(h.o, h.preset);
+      box.append(el);
+    }
+  }
+
+  $("btnExample").onclick = () => {
+    const s = state.current?.op.requestBody?.content?.["application/json"]?.schema;
+    if (s) $("body").value = JSON.stringify(example(s, ""), null, 2);
+  };
+  $("btnFormat").onclick = () => {
+    try { $("body").value = JSON.stringify(JSON.parse($("body").value), null, 2); }
+    catch (e) { alert("JSON 형식이 아닙니다.\n" + e.message); }
+  };
+  $("btnLoadFile").onclick = () => $("fileInput").click();
+  $("fileInput").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try { $("body").value = JSON.stringify(JSON.parse(text), null, 2); }
+    catch (err) { alert("JSON 파일이 아닙니다.\n" + err.message); }
+    e.target.value = "";
+  };
+  $("btnCopy").onclick = () => navigator.clipboard?.writeText($("resp").textContent);
+
+  async function login(email, password) {
+    const r = await send("POST", "/api/auth/login", JSON.stringify({ email, password }), false);
+    showResponse("POST", r);
+    return r;
+  }
+  $("btnLogin").onclick = () => {
+    const email = $("email").value.trim(), password = $("password").value;
+    if (!email || !password) { alert("이메일과 비밀번호를 넣어 주세요."); return; }
+    login(email, password);
+  };
+  $("password").onkeydown = (e) => { if (e.key === "Enter") $("btnLogin").click(); };
+
+  $("btnTestAccount").onclick = async () => {
+    const stamp = new Date().toISOString().replace(/\D/g, "").slice(2, 14);
+    const email = `zz-tester-${stamp}@example.com`, password = "password123!", nickname = "zzT" + stamp.slice(2);
+    const r = await send("POST", "/api/auth/signup", JSON.stringify({ email, password, nickname }), false);
+    if (r.status !== 201) { showResponse("POST", r); return; }
+    $("email").value = email; $("password").value = password;
+    await login(email, password);
+  };
+
+  $("btnReissue").onclick = async () => {
+    const ok = await reissue();
+    $("respStatus").textContent = ok ? "재발급 성공" : "재발급 실패 (다시 로그인 필요)";
+    $("respStatus").className = "status " + (ok ? "ok" : "err");
+  };
+  $("btnLogout").onclick = async () => {
+    if (state.refresh) showResponse("POST", await send("POST", "/api/auth/logout", undefined, true));
+    clearTokens();
+  };
+
+  renderAuth();
+  loadSpec();
+})();
+</script>
+</body>
+</html>

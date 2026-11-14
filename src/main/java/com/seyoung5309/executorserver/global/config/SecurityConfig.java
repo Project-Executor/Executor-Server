@@ -33,6 +33,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
+            // 개발용 API 테스트 페이지 (static/api-tester.html). 페이지만 공개이고, API 권한 검사는 그대로다
+            "/api-tester.html",
             "/api/auth/**",
             "/api/profiles/check-nickname",
             "/error"
