@@ -553,7 +553,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | title | 1~100자 |
 | parMoves | 1~9999 |
-| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지, `hints`가 있으면 배열인지, 크기(UTF-8 최대 256KB)만 검사한다 |
+| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지, `hints`가 있으면 배열인지, 크기(UTF-8 최대 256KB)만 검사한다. 내부 구조는 [map-data.md](map-data.md) |
 
 **Response** `201 Created`
 ```json
