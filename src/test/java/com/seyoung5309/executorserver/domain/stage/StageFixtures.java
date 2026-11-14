@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.stage;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
@@ -43,7 +43,7 @@ public final class StageFixtures {
     }
 
     /** 사용자 제작 맵 */
-    public static Stage userMap(Long id, User creator, boolean isPublic) {
+    public static Stage userMap(Long id, Account creator, boolean isPublic) {
         Stage stage = BeanUtils.instantiateClass(Stage.class);
         ReflectionTestUtils.setField(stage, "id", id);
         ReflectionTestUtils.setField(stage, "creator", creator);
@@ -75,8 +75,8 @@ public final class StageFixtures {
         return record(stage, playCount);
     }
 
-    public static User user(Long id) {
-        User user = new User("user" + id + "@example.com", "hash");
+    public static Account user(Long id) {
+        Account user = new Account("user" + id + "@example.com", "hash");
         ReflectionTestUtils.setField(user, "id", id);
         return user;
     }

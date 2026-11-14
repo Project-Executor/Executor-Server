@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.friend.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.friend.dto.FriendRequestItemResponse;
 import com.seyoung5309.executorserver.domain.friend.dto.FriendRequestStatusResponse;
 import com.seyoung5309.executorserver.domain.friend.dto.FriendResponse;
@@ -9,8 +9,8 @@ import com.seyoung5309.executorserver.domain.friend.repository.FriendRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRequestRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRow;
 import com.seyoung5309.executorserver.domain.friend.repository.RequestPair;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.UserSummary;
@@ -43,8 +43,8 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final FriendRequestRepository friendRequestRepository;
-    private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final Clock clock;
 
     // ---- 친구 ----
@@ -53,7 +53,7 @@ public class FriendService {
     @Transactional(readOnly = true)
     public List<FriendResponse> getFriends(Long userId) {
         List<FriendRow> rows = friendRepository.findFriendRows(userId);
-        Map<Long, Profile> profiles = profilesById(rows.stream().map(FriendRow::friendUserId).toList());
+        Map<Long, User> profiles = profilesById(rows.stream().map(FriendRow::friendUserId).toList());
 
         return rows.stream()
                 .filter(row -> profiles.containsKey(row.friendUserId()))
@@ -114,7 +114,7 @@ public class FriendService {
                     return existing;
                 })
                 .orElseGet(() -> friendRequestRepository.save(FriendRequest.pending(
-                        userRepository.getReferenceById(senderId), userRepository.getReferenceById(receiverId), now)));
+                        accountRepository.getReferenceById(senderId), accountRepository.getReferenceById(receiverId), now)));
         friendRequestRepository.flush();
         return FriendRequestStatusResponse.from(request);
     }
@@ -207,12 +207,12 @@ public class FriendService {
 
     /** @return 잠근 프로필 수 (둘 다 있으면 2) */
     private int lockPair(Long a, Long b) {
-        return profileRepository.lockPair(a, b).size();
+        return userRepository.lockPair(a, b).size();
     }
 
     private List<FriendRequestItemResponse> toItems(List<FriendRequest> requests,
                                                     Function<FriendRequest, Long> otherUserId) {
-        Map<Long, Profile> profiles = profilesById(requests.stream().map(otherUserId).toList());
+        Map<Long, User> profiles = profilesById(requests.stream().map(otherUserId).toList());
         return requests.stream()
                 .filter(request -> profiles.containsKey(otherUserId.apply(request)))
                 .map(request -> new FriendRequestItemResponse(request.getId(),
@@ -220,11 +220,11 @@ public class FriendService {
                 .toList();
     }
 
-    private Map<Long, Profile> profilesById(Collection<Long> userIds) {
+    private Map<Long, User> profilesById(Collection<Long> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return profileRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(Profile::getUserId, Function.identity()));
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
     }
 }

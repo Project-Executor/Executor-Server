@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.guidebook.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -21,7 +21,7 @@ public class UserGuidebook {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Account user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "guidebook_id", nullable = false)

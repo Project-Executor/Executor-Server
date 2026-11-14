@@ -1,7 +1,7 @@
 package com.seyoung5309.executorserver.domain.report.service;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.report.dto.CreateReportRequest;
 import com.seyoung5309.executorserver.domain.report.dto.MyReportResponse;
 import com.seyoung5309.executorserver.domain.report.dto.ReportCategoryResponse;
@@ -41,7 +41,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
-    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final StageRepository stageRepository;
     private final Clock clock;
 
@@ -70,7 +70,7 @@ public class ReportService {
                     "'" + category.getName() + "' 신고는 대상 사용자나 스테이지를 지정해야 합니다.");
         }
 
-        Report report = new Report(userRepository.getReferenceById(userId), category,
+        Report report = new Report(accountRepository.getReferenceById(userId), category,
                 findTargetUser(userId, request.targetUserId()), findTargetStage(userId, request.targetStageId()),
                 request.title().strip(), request.comment().strip(), clock.instant());
         reportRepository.save(report);
@@ -88,14 +88,14 @@ public class ReportService {
         return !NO_TARGET_CATEGORIES.contains(category.getName());
     }
 
-    private User findTargetUser(Long userId, Long targetUserId) {
+    private Account findTargetUser(Long userId, Long targetUserId) {
         if (targetUserId == null) {
             return null;
         }
         if (targetUserId.equals(userId)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "자기 자신은 신고할 수 없습니다.");
         }
-        return userRepository.findById(targetUserId)
+        return accountRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "신고 대상 사용자를 찾을 수 없습니다."));
     }
 

@@ -6,10 +6,10 @@ import com.seyoung5309.executorserver.domain.auth.dto.SignupRequest;
 import com.seyoung5309.executorserver.domain.auth.dto.SignupResponse;
 import com.seyoung5309.executorserver.domain.auth.dto.TokenResponse;
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.security.JwtProperties;
@@ -38,8 +38,8 @@ class AuthServiceTest {
 
     private static final String SECRET = "dGVzdC1vbmx5LWp3dC1zZWNyZXQta2V5LWZvci1leGVjdXRvci1zZXJ2ZXItdGVzdHM=";
 
+    private AccountRepository accountRepository;
     private UserRepository userRepository;
-    private ProfileRepository profileRepository;
     private RefreshTokenStore refreshTokenStore;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtProvider jwtProvider = new JwtProvider(new JwtProperties(SECRET, 1800, 1_209_600));
@@ -47,34 +47,34 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
+        accountRepository = mock(AccountRepository.class);
         userRepository = mock(UserRepository.class);
-        profileRepository = mock(ProfileRepository.class);
         refreshTokenStore = mock(RefreshTokenStore.class);
-        authService = new AuthService(userRepository, profileRepository, passwordEncoder, jwtProvider, refreshTokenStore);
+        authService = new AuthService(accountRepository, userRepository, passwordEncoder, jwtProvider, refreshTokenStore);
 
         // 저장하면 DB가 ID를 채워주는 것처럼 흉내낸다
-        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
-            User user = invocation.getArgument(0);
+        when(accountRepository.saveAndFlush(any(Account.class))).thenAnswer(invocation -> {
+            Account user = invocation.getArgument(0);
             ReflectionTestUtils.setField(user, "id", 1L);
             return user;
         });
-        when(profileRepository.saveAndFlush(any(Profile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
     void 가입하면_이메일은_소문자로_비밀번호는_해시로_저장되고_프로필이_함께_생긴다() {
         SignupResponse response = authService.signup(new SignupRequest(" Executor@Example.COM ", "password123!", " debugger "));
 
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).saveAndFlush(userCaptor.capture());
-        User saved = userCaptor.getValue();
+        ArgumentCaptor<Account> userCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).saveAndFlush(userCaptor.capture());
+        Account saved = userCaptor.getValue();
         assertThat(saved.getEmail()).isEqualTo("executor@example.com");
         assertThat(saved.getPassword()).isNotEqualTo("password123!");
         assertThat(passwordEncoder.matches("password123!", saved.getPassword())).isTrue();
         assertThat(saved.getRole()).isEqualTo(Role.USER);
 
-        ArgumentCaptor<Profile> profileCaptor = ArgumentCaptor.forClass(Profile.class);
-        verify(profileRepository).saveAndFlush(profileCaptor.capture());
+        ArgumentCaptor<User> profileCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).saveAndFlush(profileCaptor.capture());
         assertThat(profileCaptor.getValue().getNickname()).isEqualTo("debugger");
         assertThat(profileCaptor.getValue().getCoin()).isZero();
 
@@ -83,20 +83,20 @@ class AuthServiceTest {
 
     @Test
     void 이미_가입된_이메일이면_DUPLICATE_EMAIL() {
-        when(userRepository.existsByEmail("executor@example.com")).thenReturn(true);
+        when(accountRepository.existsByEmail("executor@example.com")).thenReturn(true);
 
         assertErrorCode(() -> authService.signup(new SignupRequest("EXECUTOR@example.com", "password123!", "debugger")),
                 ErrorCode.DUPLICATE_EMAIL);
-        verify(userRepository, never()).saveAndFlush(any());
+        verify(accountRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void 이미_쓰는_닉네임이면_DUPLICATE_NICKNAME() {
-        when(profileRepository.existsByNickname("debugger")).thenReturn(true);
+        when(userRepository.existsByNickname("debugger")).thenReturn(true);
 
         assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
                 ErrorCode.DUPLICATE_NICKNAME);
-        verify(userRepository, never()).saveAndFlush(any());
+        verify(accountRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -107,7 +107,7 @@ class AuthServiceTest {
 
     @Test
     void 동시에_같은_닉네임으로_가입해서_DB_제약에_걸리면_DUPLICATE_NICKNAME() {
-        when(profileRepository.saveAndFlush(any(Profile.class))).thenThrow(uniqueViolation("uk_profiles_nickname"));
+        when(userRepository.saveAndFlush(any(User.class))).thenThrow(uniqueViolation("uk_users_nickname"));
 
         assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
                 ErrorCode.DUPLICATE_NICKNAME);
@@ -115,7 +115,7 @@ class AuthServiceTest {
 
     @Test
     void 동시에_같은_이메일로_가입해서_DB_제약에_걸리면_DUPLICATE_EMAIL() {
-        when(userRepository.saveAndFlush(any(User.class))).thenThrow(uniqueViolation("uk_users_email"));
+        when(accountRepository.saveAndFlush(any(Account.class))).thenThrow(uniqueViolation("uk_accounts_email"));
 
         assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
                 ErrorCode.DUPLICATE_EMAIL);
@@ -123,7 +123,7 @@ class AuthServiceTest {
 
     @Test
     void 이메일_중복_확인은_대소문자와_공백을_무시한다() {
-        when(userRepository.existsByEmail("executor@example.com")).thenReturn(true);
+        when(accountRepository.existsByEmail("executor@example.com")).thenReturn(true);
 
         assertThat(authService.isEmailAvailable("  EXECUTOR@example.com ")).isFalse();
         assertThat(authService.isEmailAvailable("new@example.com")).isTrue();
@@ -133,9 +133,9 @@ class AuthServiceTest {
 
     @Test
     void 로그인하면_두_토큰을_발급하고_Refresh_Token을_14일_TTL로_저장한다() {
-        User user = existingUser(5L, "executor@example.com", "password123!");
-        Profile profile = new Profile(user, "debugger");
-        when(profileRepository.findById(5L)).thenReturn(Optional.of(profile));
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        User profile = new User(user, "debugger");
+        when(userRepository.findById(5L)).thenReturn(Optional.of(profile));
 
         LoginResponse response = authService.login(new LoginRequest(" EXECUTOR@example.com", "password123!"));
 
@@ -148,10 +148,10 @@ class AuthServiceTest {
 
     @Test
     void 집행자_이름을_입력했으면_hasCharacterName이_true() {
-        User user = existingUser(5L, "executor@example.com", "password123!");
-        Profile profile = new Profile(user, "debugger");
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        User profile = new User(user, "debugger");
         ReflectionTestUtils.setField(profile, "characterName", "오집행");
-        when(profileRepository.findById(5L)).thenReturn(Optional.of(profile));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(profile));
 
         LoginResponse response = authService.login(new LoginRequest("executor@example.com", "password123!"));
 
@@ -169,7 +169,7 @@ class AuthServiceTest {
 
     @Test
     void 없는_이메일도_같은_INVALID_CREDENTIALS() {
-        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
         assertErrorCode(() -> authService.login(new LoginRequest("nobody@example.com", "password123!")),
                 ErrorCode.INVALID_CREDENTIALS);
@@ -201,7 +201,7 @@ class AuthServiceTest {
 
     @Test
     void 탈퇴한_계정의_Refresh_Token이면_INVALID_REFRESH_TOKEN() {
-        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+        when(accountRepository.findById(5L)).thenReturn(Optional.empty());
 
         assertErrorCode(() -> authService.reissue(jwtProvider.createRefreshToken(5L)), ErrorCode.INVALID_REFRESH_TOKEN);
         verify(refreshTokenStore, never()).rotate(anyLong(), anyString(), anyString(), any());
@@ -225,11 +225,11 @@ class AuthServiceTest {
 
     @Test
     void 비밀번호가_맞으면_계정을_지우고_Refresh_Token도_지운다() {
-        User user = existingUser(5L, "executor@example.com", "password123!");
+        Account user = existingUser(5L, "executor@example.com", "password123!");
 
         authService.withdraw(5L, "password123!");
 
-        verify(userRepository).delete(user);
+        verify(accountRepository).delete(user);
         verify(refreshTokenStore).delete(5L);
     }
 
@@ -238,32 +238,32 @@ class AuthServiceTest {
         existingUser(5L, "executor@example.com", "password123!");
 
         assertErrorCode(() -> authService.withdraw(5L, "wrong-password"), ErrorCode.INVALID_CREDENTIALS);
-        verify(userRepository, never()).delete(any());
+        verify(accountRepository, never()).delete(any());
         verify(refreshTokenStore, never()).delete(any());
     }
 
     @Test
     void 이미_없는_계정이면_UNAUTHORIZED() {
-        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+        when(accountRepository.findById(5L)).thenReturn(Optional.empty());
 
         assertErrorCode(() -> authService.withdraw(5L, "password123!"), ErrorCode.UNAUTHORIZED);
     }
 
     @Test
     void Redis_삭제가_실패해도_탈퇴는_진행된다() {
-        User user = existingUser(5L, "executor@example.com", "password123!");
+        Account user = existingUser(5L, "executor@example.com", "password123!");
         doThrow(new RuntimeException("redis down")).when(refreshTokenStore).delete(5L);
 
         authService.withdraw(5L, "password123!");
 
-        verify(userRepository).delete(user);
+        verify(accountRepository).delete(user);
     }
 
-    private User existingUser(Long id, String email, String rawPassword) {
-        User user = new User(email, passwordEncoder.encode(rawPassword));
+    private Account existingUser(Long id, String email, String rawPassword) {
+        Account user = new Account(email, passwordEncoder.encode(rawPassword));
         ReflectionTestUtils.setField(user, "id", id);
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(accountRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(accountRepository.findById(id)).thenReturn(Optional.of(user));
         return user;
     }
 

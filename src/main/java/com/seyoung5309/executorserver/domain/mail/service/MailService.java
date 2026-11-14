@@ -8,7 +8,7 @@ import com.seyoung5309.executorserver.domain.mail.dto.ClaimResponse;
 import com.seyoung5309.executorserver.domain.mail.dto.MailResponse;
 import com.seyoung5309.executorserver.domain.mail.entity.Mail;
 import com.seyoung5309.executorserver.domain.mail.repository.MailRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.PageResponse;
@@ -38,7 +38,7 @@ public class MailService {
     private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final MailRepository mailRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final UserItemRepository userItemRepository;
     private final Clock clock;
 
@@ -106,7 +106,7 @@ public class MailService {
      * 이미 가진 스킨·테마는 아이템 가격 × 수량만큼 코인으로 바꾼다.
      */
     private Grant grant(Long userId, Mail mail, Instant now) {
-        profileRepository.addCoin(userId, mail.getRewardCoin());
+        userRepository.addCoin(userId, mail.getRewardCoin());
 
         Item item = mail.getRewardItem();
         if (item == null || mail.getRewardItemQuantity() <= 0) {
@@ -121,7 +121,7 @@ public class MailService {
             return new Grant(0, new ClaimResponse.GrantedItem(item.getId(), item.getItemType(), 1));
         }
         int converted = Math.toIntExact(Math.min((long) item.getPrice() * quantity, Integer.MAX_VALUE));
-        profileRepository.addCoin(userId, converted);
+        userRepository.addCoin(userId, converted);
         return new Grant(converted, null);
     }
 
@@ -133,7 +133,7 @@ public class MailService {
     }
 
     private int currentCoin(Long userId) {
-        return profileRepository.findCoinByUserId(userId).orElse(0);
+        return userRepository.findCoinByUserId(userId).orElse(0);
     }
 
     private record Grant(int convertedCoin, ClaimResponse.GrantedItem item) {

@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.CustomStageRequest;
 import com.seyoung5309.executorserver.domain.stage.dto.CustomStageStateResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.MyCustomStageResponse;
@@ -53,8 +53,8 @@ public class CustomStageService {
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
     private final UserStageHintRepository userStageHintRepository;
-    private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final MapDataParser mapDataParser;
 
     /** 공개된 사용자 맵 (최신순). 클리어한 사람 수와 내 클리어 여부를 붙인다 */
@@ -68,12 +68,12 @@ public class CustomStageService {
         Map<Long, Long> clearCounts = userStageRepository.countClears(stageIds).stream()
                 .collect(Collectors.toMap(StageClearCount::stageId, StageClearCount::count));
         Set<Long> myCleared = userStageRepository.findClearedStageIdsAmong(userId, stageIds);
-        Map<Long, Profile> creators = profileRepository.findAllById(
+        Map<Long, User> creators = userRepository.findAllById(
                         stages.map(stage -> stage.getCreator().getId()).getContent()).stream()
-                .collect(Collectors.toMap(Profile::getUserId, Function.identity()));
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
 
         return PageResponse.of(stages, stage -> {
-            Profile creator = creators.get(stage.getCreator().getId());
+            User creator = creators.get(stage.getCreator().getId());
             return new PublicCustomStageResponse(
                     stage.getId(),
                     stage.getTitle(),
@@ -103,7 +103,7 @@ public class CustomStageService {
     /** 비공개 상태로 저장한다. @throws BusinessException INVALID_INPUT(mapData) */
     public CustomStageStateResponse create(Long userId, CustomStageRequest request) {
         String mapData = mapDataParser.toStoredJson(request.mapData(), MAX_MAP_DATA_BYTES);
-        Stage stage = stageRepository.save(Stage.userMap(userRepository.getReferenceById(userId),
+        Stage stage = stageRepository.save(Stage.userMap(accountRepository.getReferenceById(userId),
                 request.title().strip(), mapData, request.parMoves()));
         return new CustomStageStateResponse(stage.getId(), false, false);
     }

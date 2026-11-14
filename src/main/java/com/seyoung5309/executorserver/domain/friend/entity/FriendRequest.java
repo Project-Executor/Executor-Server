@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.friend.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -26,11 +26,11 @@ public class FriendRequest {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
-    private User sender;
+    private Account sender;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "receiver_id", nullable = false)
-    private User receiver;
+    private Account receiver;
 
     /** DB는 VARCHAR(20) + CHECK 이므로 VARCHAR로 매핑 */
     @Enumerated(EnumType.STRING)
@@ -44,7 +44,7 @@ public class FriendRequest {
 
     private Instant respondedAt;
 
-    public static FriendRequest pending(User sender, User receiver, Instant now) {
+    public static FriendRequest pending(Account sender, Account receiver, Instant now) {
         FriendRequest request = new FriendRequest();
         request.sender = sender;
         request.receiver = receiver;

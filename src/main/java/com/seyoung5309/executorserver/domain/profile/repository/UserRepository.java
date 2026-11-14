@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.profile.repository;
 
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -12,13 +12,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface ProfileRepository extends JpaRepository<Profile, Long> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByNickname(String nickname);
 
     /** 코인을 더한다 (coin = coin + amount). 엔티티를 읽지 않고 DB에서 바로 더해서 동시 요청에도 값이 유실되지 않는다. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update Profile p set p.coin = p.coin + :amount where p.userId = :userId")
+    @Query("update User p set p.coin = p.coin + :amount where p.userId = :userId")
     int addCoin(@Param("userId") Long userId, @Param("amount") int amount);
 
     /**
@@ -27,7 +27,7 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      * @return 뺐으면 1, 코인이 모자라면 0
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update Profile p set p.coin = p.coin - :amount where p.userId = :userId and p.coin >= :amount")
+    @Query("update User p set p.coin = p.coin - :amount where p.userId = :userId and p.coin >= :amount")
     int spendCoin(@Param("userId") Long userId, @Param("amount") int amount);
 
     /**
@@ -38,7 +38,7 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      * @return 잠근 사용자 ID (없는 사용자는 빠진다)
      */
     @Query(value = """
-            SELECT user_id FROM profiles
+            SELECT user_id FROM users
             WHERE user_id IN (:a, :b)
             ORDER BY user_id
             FOR UPDATE
@@ -51,28 +51,28 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      *
      * @return 잠근 사용자 ID (없는 사용자면 빈 값)
      */
-    @Query(value = "SELECT user_id FROM profiles WHERE user_id = :userId FOR UPDATE", nativeQuery = true)
+    @Query(value = "SELECT user_id FROM users WHERE user_id = :userId FOR UPDATE", nativeQuery = true)
     Optional<Long> lockOne(@Param("userId") Long userId);
 
-    @Query("select p.coin from Profile p where p.userId = :userId")
+    @Query("select p.coin from User p where p.userId = :userId")
     Optional<Integer> findCoinByUserId(@Param("userId") Long userId);
 
-    /** 내 프로필 조회용: 이메일·권한이 필요하므로 users를 함께 읽는다 */
-    @EntityGraph(attributePaths = "user")
-    @Query("select p from Profile p where p.userId = :userId")
-    Optional<Profile> findWithUserById(@Param("userId") Long userId);
+    /** 내 프로필 조회용: 이메일·권한이 필요하므로 accounts를 함께 읽는다 */
+    @EntityGraph(attributePaths = "account")
+    @Query("select p from User p where p.userId = :userId")
+    Optional<User> findWithUserById(@Param("userId") Long userId);
 
     /**
      * 닉네임에 검색어가 포함된 프로필 (나 자신 제외).
      * keyword는 LIKE 특수문자(%, _, \)를 이스케이프한 값이어야 한다.
      */
     @Query("""
-            select p from Profile p
+            select p from User p
             where p.nickname like concat('%', :keyword, '%') escape '\\'
               and p.userId <> :excludeUserId
             order by p.nickname asc
             """)
-    Page<Profile> searchByNickname(@Param("keyword") String keyword,
+    Page<User> searchByNickname(@Param("keyword") String keyword,
                                    @Param("excludeUserId") Long excludeUserId,
                                    Pageable pageable);
 }

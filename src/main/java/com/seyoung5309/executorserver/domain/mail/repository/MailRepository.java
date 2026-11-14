@@ -62,7 +62,7 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
             INSERT INTO mails (receiver_id, title, content, reward_coin, reward_item_id, reward_item_quantity,
                                expires_at, created_at)
             SELECT u.id, :title, :content, :rewardCoin, :rewardItemId, :rewardItemQuantity, :expiresAt, :now
-            FROM users u
+            FROM accounts u
             WHERE u.id IN (:receiverIds)
             """, nativeQuery = true)
     int sendTo(@Param("receiverIds") Collection<Long> receiverIds, @Param("title") String title,
@@ -76,7 +76,7 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
             INSERT INTO mails (receiver_id, title, content, reward_coin, reward_item_id, reward_item_quantity,
                                expires_at, created_at)
             SELECT u.id, :title, :content, :rewardCoin, :rewardItemId, :rewardItemQuantity, :expiresAt, :now
-            FROM users u
+            FROM accounts u
             """, nativeQuery = true)
     int sendToAll(@Param("title") String title, @Param("content") String content,
                   @Param("rewardCoin") int rewardCoin, @Param("rewardItemId") Long rewardItemId,

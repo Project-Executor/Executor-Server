@@ -4,7 +4,7 @@ import com.seyoung5309.executorserver.domain.guidebook.entity.Guidebook;
 import com.seyoung5309.executorserver.domain.guidebook.entity.GuidebookCategory;
 import com.seyoung5309.executorserver.domain.guidebook.repository.GuidebookRepository;
 import com.seyoung5309.executorserver.domain.guidebook.repository.UserGuidebookRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultRequest;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
@@ -39,7 +39,7 @@ class StageResultServiceTest {
     private StageAccessService accessService;
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private GuidebookRepository guidebookRepository;
     private UserGuidebookRepository userGuidebookRepository;
     private StageResultService service;
@@ -54,25 +54,25 @@ class StageResultServiceTest {
         accessService = mock(StageAccessService.class);
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
-        profileRepository = mock(ProfileRepository.class);
+        userRepository = mock(UserRepository.class);
         guidebookRepository = mock(GuidebookRepository.class);
         userGuidebookRepository = mock(UserGuidebookRepository.class);
-        service = new StageResultService(accessService, stageRepository, userStageRepository, profileRepository,
+        service = new StageResultService(accessService, stageRepository, userStageRepository, userRepository,
                 guidebookRepository, userGuidebookRepository, Clock.fixed(NOW, ZoneOffset.UTC));
 
         when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(tutorial, s1, s2));
-        when(profileRepository.findCoinByUserId(1L)).thenReturn(Optional.of(100));
+        when(userRepository.findCoinByUserId(1L)).thenReturn(Optional.of(100));
     }
 
     @Test
     void 첫_클리어면_보상을_지급하고_다음_스테이지를_알려준다() {
         givenRecord(s1, notCleared(s1, 1));
-        when(profileRepository.findCoinByUserId(1L)).thenReturn(Optional.of(150));
+        when(userRepository.findCoinByUserId(1L)).thenReturn(Optional.of(150));
 
         StageResultResponse response = service.submit(1L, 10L, request(true, 18, true));
 
         verify(userStageRepository).upsertPlay(1L, 10L, NOW);
-        verify(profileRepository).addCoin(1L, 50);
+        verify(userRepository).addCoin(1L, 50);
         assertThat(response.firstClear()).isTrue();
         assertThat(response.rewardCoin()).isEqualTo(50);
         assertThat(response.totalCoin()).isEqualTo(150);
@@ -89,7 +89,7 @@ class StageResultServiceTest {
 
         StageResultResponse response = service.submit(1L, 10L, request(true, 25, false));
 
-        verify(profileRepository, never()).addCoin(anyLong(), anyInt());
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
         assertThat(response.firstClear()).isFalse();
         assertThat(response.rewardCoin()).isZero();
         assertThat(response.isNewBest()).isFalse();
@@ -105,7 +105,7 @@ class StageResultServiceTest {
         StageResultResponse response = service.submit(1L, 10L, request(false, null, false));
 
         verify(userStageRepository).upsertPlay(1L, 10L, NOW);
-        verify(profileRepository, never()).addCoin(anyLong(), anyInt());
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
         assertThat(record.getFirstClearedAt()).isNull();
         assertThat(response.cleared()).isFalse();
         assertThat(response.thisRun()).isEqualTo(new StageResultResponse.RunResult(false, false, false));
@@ -149,7 +149,7 @@ class StageResultServiceTest {
         assertThat(response.firstClear()).isTrue();
         assertThat(response.rewardCoin()).isZero();
         assertThat(response.nextStageId()).isNull();
-        verify(profileRepository, never()).addCoin(anyLong(), anyInt());
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
     }
 
     @Test

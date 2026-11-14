@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.MyRecordResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.OperationResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageDetailResponse;
@@ -36,7 +36,7 @@ class StageServiceTest {
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
     private UserStageHintRepository userStageHintRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private StageAccessService stageAccessService;
     private StageService stageService;
 
@@ -54,10 +54,10 @@ class StageServiceTest {
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
         userStageHintRepository = mock(UserStageHintRepository.class);
-        profileRepository = mock(ProfileRepository.class);
+        userRepository = mock(UserRepository.class);
         stageAccessService = mock(StageAccessService.class);
         stageService = new StageService(operationRepository, stageRepository, userStageRepository, userStageHintRepository,
-                profileRepository, stageAccessService, new MapDataParser(JsonMapper.builder().build()));
+                userRepository, stageAccessService, new MapDataParser(JsonMapper.builder().build()));
 
         when(operationRepository.findAllByOrderBySortOrderAsc()).thenReturn(List.of(tutorial, op1, op2));
         when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(t1, s1, s2));
@@ -150,11 +150,11 @@ class StageServiceTest {
 
     @Test
     void 사용자_맵_상세에는_제작자가_들어가고_작전은_null() {
-        User creator = user(7L);
+        Account creator = user(7L);
         Stage map = userMap(50L, creator, true);
         when(stageAccessService.getPlayableStage(1L, 50L)).thenReturn(map);
         when(userStageRepository.findByUserIdAndStageId(1L, 50L)).thenReturn(Optional.empty());
-        when(profileRepository.findById(7L)).thenReturn(Optional.of(new Profile(creator, "maker")));
+        when(userRepository.findById(7L)).thenReturn(Optional.of(new User(creator, "maker")));
 
         StageDetailResponse detail = stageService.getStageDetail(1L, 50L);
 

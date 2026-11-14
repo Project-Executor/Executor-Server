@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.CustomStageRequest;
 import com.seyoung5309.executorserver.domain.stage.dto.CustomStageStateResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.PublicCustomStageResponse;
@@ -40,7 +40,7 @@ class CustomStageServiceTest {
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
     private UserStageHintRepository userStageHintRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private CustomStageService service;
 
     @BeforeEach
@@ -48,16 +48,16 @@ class CustomStageServiceTest {
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
         userStageHintRepository = mock(UserStageHintRepository.class);
-        profileRepository = mock(ProfileRepository.class);
-        UserRepository userRepository = mock(UserRepository.class);
-        when(userRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
+        userRepository = mock(UserRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        when(accountRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
         when(stageRepository.save(any())).thenAnswer(inv -> {
             Stage saved = inv.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 101L);
             return saved;
         });
         service = new CustomStageService(stageRepository, userStageRepository, userStageHintRepository,
-                profileRepository, userRepository,
+                userRepository, accountRepository,
                 new MapDataParser(objectMapper));
     }
 
@@ -156,7 +156,7 @@ class CustomStageServiceTest {
         when(stageRepository.findPublicUserMaps(any())).thenReturn(new PageImpl<>(List.of(a, b)));
         when(userStageRepository.countClears(List.of(30L, 31L))).thenReturn(List.of(new StageClearCount(30L, 14)));
         when(userStageRepository.findClearedStageIdsAmong(ME, List.of(30L, 31L))).thenReturn(Set.of(31L));
-        when(profileRepository.findAllById(any())).thenReturn(List.of(profile(7L, "nullptr"), profile(8L, "segfault")));
+        when(userRepository.findAllById(any())).thenReturn(List.of(profile(7L, "nullptr"), profile(8L, "segfault")));
 
         List<PublicCustomStageResponse> content = service.getPublicMaps(ME, 0, 20).content();
 
@@ -183,8 +183,8 @@ class CustomStageServiceTest {
         return new CustomStageRequest(title, 25, objectMapper.readTree(mapData));
     }
 
-    private static Profile profile(Long userId, String nickname) {
-        Profile profile = new Profile(user(userId), nickname);
+    private static User profile(Long userId, String nickname) {
+        User profile = new User(user(userId), nickname);
         ReflectionTestUtils.setField(profile, "userId", userId);
         return profile;
     }

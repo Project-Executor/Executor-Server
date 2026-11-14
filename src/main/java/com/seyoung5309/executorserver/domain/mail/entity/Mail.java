@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.mail.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -23,7 +23,7 @@ public class Mail {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "receiver_id", nullable = false)
-    private User receiver;
+    private Account receiver;
 
     @Column(nullable = false, length = 100)
     private String title;

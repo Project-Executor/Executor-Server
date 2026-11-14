@@ -1,26 +1,27 @@
 package com.seyoung5309.executorserver.domain.profile.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/** 사용자 (프로필·코인·장착 아이템). 로그인 정보는 accounts 테이블(Account)에 있고 1:1이다 */
 @Entity
-@Table(name = "profiles")
+@Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Profile {
+public class User {
 
-    /** users.id와 같은 값 (1:1) */
+    /** accounts.id와 같은 값 (1:1) */
     @Id
     private Long userId;
 
     @MapsId
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
-    private User user;
+    private Account account;
 
     @Column(nullable = false, unique = true, length = 20)
     private String nickname;
@@ -44,8 +45,8 @@ public class Profile {
     @JoinColumn(name = "equipped_theme_id")
     private Item equippedTheme;
 
-    public Profile(User user, String nickname) {
-        this.user = user;
+    public User(Account account, String nickname) {
+        this.account = account;
         this.nickname = nickname;
         this.coin = 0;
     }

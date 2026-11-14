@@ -1,7 +1,7 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.HintResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
@@ -24,13 +24,13 @@ public class StageHintService {
     private final MapDataParser mapDataParser;
     private final UserItemRepository userItemRepository;
     private final UserStageHintRepository userStageHintRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final Clock clock;
 
     /**
      * 이 스테이지의 힌트 하나를 받는다. 처음 보는 힌트면 힌트 아이템 1개를 쓰고, 이미 본 힌트면 무료다.
      * <p>
-     * 같은 사용자의 요청은 프로필 행을 잠가 하나씩 처리한다 (잠금 순서: profiles -> user_stage_hints -> user_items).
+     * 같은 사용자의 요청은 프로필 행을 잠가 하나씩 처리한다 (잠금 순서: users -> user_stage_hints -> user_items).
      * 아이템이 없어 실패하면 트랜잭션이 롤백되어 열람 기록도 남지 않는다.
      *
      * @throws BusinessException NOT_FOUND, STAGE_LOCKED, FORBIDDEN(남의 비공개 맵),
@@ -48,7 +48,7 @@ public class StageHintService {
                     : "hintIndex는 0~" + (hints.size() - 1) + " 사이여야 합니다.");
         }
 
-        profileRepository.lockOne(userId)
+        userRepository.lockOne(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         boolean firstView = userStageHintRepository.insertIfAbsent(userId, stageId, hintIndex, Instant.now(clock)) == 1;
         if (firstView && userItemRepository.useOneHint(userId) == 0) {

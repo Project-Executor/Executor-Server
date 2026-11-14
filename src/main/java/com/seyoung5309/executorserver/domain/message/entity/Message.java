@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.message.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -21,11 +21,11 @@ public class Message {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
-    private User sender;
+    private Account sender;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "receiver_id", nullable = false)
-    private User receiver;
+    private Account receiver;
 
     @Column(nullable = false, length = 500)
     private String content;
@@ -37,7 +37,7 @@ public class Message {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    public Message(User sender, User receiver, String content, Instant createdAt) {
+    public Message(Account sender, Account receiver, String content, Instant createdAt) {
         this.sender = sender;
         this.receiver = receiver;
         this.content = content;

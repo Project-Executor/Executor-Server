@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.profile.dto;
 
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
 
 /** 내 프로필. equipped*Id가 null이면 기본 스킨·테마 */
 public record MyProfileResponse(
@@ -17,18 +17,18 @@ public record MyProfileResponse(
         Role role
 ) {
 
-    public static MyProfileResponse from(Profile profile) {
-        User user = profile.getUser();
+    public static MyProfileResponse from(User profile) {
+        Account account = profile.getAccount();
         return new MyProfileResponse(
                 profile.getUserId(),
-                user.getEmail(),
+                account.getEmail(),
                 profile.getNickname(),
                 profile.getCharacterName(),
                 profile.getComment(),
                 profile.getCoin(),
                 profile.getEquippedSkinId(),
                 profile.getEquippedThemeId(),
-                user.getRole()
+                account.getRole()
         );
     }
 }

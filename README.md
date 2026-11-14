@@ -108,6 +108,7 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 | 파일 | 내용 | 운영 DB 적용 |
 | --- | --- | --- |
 | `2026-11-12_user_stage_hints.sql` | 힌트 열람 기록 테이블 (한 번 본 힌트는 무료) | 2026-11-12 |
+| `2026-11-15_rename_accounts_users.sql` | 테이블 이름 변경 `users` → `accounts`, `profiles` → `users` (제약 조건 이름 포함) | 2026-11-15 |
 
 ## 배포 (Railway)
 
@@ -128,7 +129,7 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 ## 구현 메모
 
 - **중복 지급·음수 방지**: 보상 지급, 코인 차감, 아이템 차감은 조건부 UPDATE 한 문장으로 처리하고, 영향받은 행 수로 성공 여부를 판단한다. 이미 있으면 건너뛰는 기록은 `INSERT IGNORE`, 수량 누적은 `ON DUPLICATE KEY UPDATE`.
-- **동시 요청 순서 처리**: 같은 대상에 대한 요청은 행 잠금(`SELECT ... FOR UPDATE`)으로 하나씩 처리한다. 두 사용자가 얽힌 친구 요청은 두 프로필을 ID 오름차순으로 잠근다. 잠금 순서는 `mails → profiles → user_stage_hints → user_items`로 맞춘다.
+- **동시 요청 순서 처리**: 같은 대상에 대한 요청은 행 잠금(`SELECT ... FOR UPDATE`)으로 하나씩 처리한다. 두 사용자가 얽힌 친구 요청은 두 프로필을 ID 오름차순으로 잠근다. 잠금 순서는 `mails → users → user_stage_hints → user_items`로 맞춘다.
 - **시각**: 모든 시각은 UTC 초 단위다. 서버 시계(`Clock.tick` 1초)와 생성·수정 시각(`@CreatedAtSeconds`, `@UpdatedAtSeconds`)을 DB의 `DATETIME`(초 단위)과 맞춰, 저장 직후 응답한 값과 나중에 조회한 값이 같다.
 - **목록 API**: 정렬은 서버가 정하고, 페이지 크기는 1~50으로 제한한다.
 - **사용자 맵**: `map_data`는 JSON 객체(최대 256KB)만 받는다. 제작자가 클리어해야 공개할 수 있고, 공개된 맵은 수정할 수 없다. 비공개 맵을 수정하면 플레이 기록과 힌트 열람 기록이 지워진다.

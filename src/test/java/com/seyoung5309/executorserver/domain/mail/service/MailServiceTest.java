@@ -7,7 +7,7 @@ import com.seyoung5309.executorserver.domain.mail.dto.ClaimAllResponse;
 import com.seyoung5309.executorserver.domain.mail.dto.ClaimResponse;
 import com.seyoung5309.executorserver.domain.mail.entity.Mail;
 import com.seyoung5309.executorserver.domain.mail.repository.MailRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +34,7 @@ class MailServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-12T03:00:00Z");
 
     private MailRepository mailRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private UserItemRepository userItemRepository;
     private MailService service;
 
@@ -44,10 +44,10 @@ class MailServiceTest {
     @BeforeEach
     void setUp() {
         mailRepository = mock(MailRepository.class);
-        profileRepository = mock(ProfileRepository.class);
+        userRepository = mock(UserRepository.class);
         userItemRepository = mock(UserItemRepository.class);
-        service = new MailService(mailRepository, profileRepository, userItemRepository, Clock.fixed(NOW, ZoneOffset.UTC));
-        when(profileRepository.findCoinByUserId(ME)).thenReturn(Optional.of(750));
+        service = new MailService(mailRepository, userRepository, userItemRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        when(userRepository.findCoinByUserId(ME)).thenReturn(Optional.of(750));
         when(mailRepository.markClaimed(anyLong(), eq(ME), eq(NOW))).thenReturn(1);
     }
 
@@ -58,7 +58,7 @@ class MailServiceTest {
         ClaimResponse response = service.claim(ME, 15L);
 
         assertThat(response).isEqualTo(new ClaimResponse(15L, 100, 0, null, 750));
-        verify(profileRepository).addCoin(ME, 100);
+        verify(userRepository).addCoin(ME, 100);
         verifyNoInteractions(userItemRepository);
     }
 
@@ -81,9 +81,9 @@ class MailServiceTest {
 
         assertThat(response.rewardItem()).isEqualTo(new ClaimResponse.GrantedItem(3L, ItemType.SKIN, 1));
         assertThat(response.convertedCoin()).isZero();
-        InOrder order = inOrder(mailRepository, profileRepository, userItemRepository);
+        InOrder order = inOrder(mailRepository, userRepository, userItemRepository);
         order.verify(mailRepository).markClaimed(15L, ME, NOW);
-        order.verify(profileRepository).addCoin(ME, 50);
+        order.verify(userRepository).addCoin(ME, 50);
         order.verify(userItemRepository).insertIfAbsent(ME, 3L, NOW);
     }
 
@@ -95,7 +95,7 @@ class MailServiceTest {
         ClaimResponse response = service.claim(ME, 15L);
 
         assertThat(response).isEqualTo(new ClaimResponse(15L, 100, 300, null, 750));
-        verify(profileRepository).addCoin(ME, 300);
+        verify(userRepository).addCoin(ME, 300);
     }
 
     @Test
@@ -121,7 +121,7 @@ class MailServiceTest {
         when(mailRepository.markClaimed(15L, ME, NOW)).thenReturn(0);
 
         assertErrorCode(() -> service.claim(ME, 15L), ErrorCode.ALREADY_CLAIMED);
-        verify(profileRepository, never()).addCoin(anyLong(), anyInt());
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
     }
 
     @Test
@@ -156,7 +156,7 @@ class MailServiceTest {
 
         assertThat(response).isEqualTo(new ClaimAllResponse(3, 60, 300,
                 List.of(new ClaimAllResponse.ItemQuantity(9L, 5)), 750));
-        verify(profileRepository, never()).addCoin(ME, 999);
+        verify(userRepository, never()).addCoin(ME, 999);
     }
 
     @Test

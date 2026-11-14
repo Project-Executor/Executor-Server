@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.report.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.report.dto.AdminReportResponse;
 import com.seyoung5309.executorserver.domain.report.dto.CreateReportRequest;
 import com.seyoung5309.executorserver.domain.report.dto.ReportCategoryResponse;
@@ -49,7 +49,7 @@ class ReportServiceTest {
     class 신고하기 {
         private ReportRepository reportRepository;
         private ReportCategoryRepository categoryRepository;
-        private UserRepository userRepository;
+        private AccountRepository accountRepository;
         private StageRepository stageRepository;
         private ReportService service;
 
@@ -57,14 +57,14 @@ class ReportServiceTest {
         void setUp() {
             reportRepository = mock(ReportRepository.class);
             categoryRepository = mock(ReportCategoryRepository.class);
-            userRepository = mock(UserRepository.class);
+            accountRepository = mock(AccountRepository.class);
             stageRepository = mock(StageRepository.class);
-            service = new ReportService(reportRepository, categoryRepository, userRepository, stageRepository, CLOCK);
+            service = new ReportService(reportRepository, categoryRepository, accountRepository, stageRepository, CLOCK);
             for (ReportCategory c : List.of(nickname, badMap, bug, etc)) {
                 when(categoryRepository.findById(c.getId())).thenReturn(Optional.of(c));
             }
-            when(userRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
-            when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L)));
+            when(accountRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
+            when(accountRepository.findById(2L)).thenReturn(Optional.of(user(2L)));
         }
 
         @Test
@@ -140,14 +140,14 @@ class ReportServiceTest {
     @Nested
     class 관리자 {
         private ReportRepository reportRepository;
-        private ProfileRepository profileRepository;
+        private UserRepository userRepository;
         private AdminReportService service;
 
         @BeforeEach
         void setUp() {
             reportRepository = mock(ReportRepository.class);
-            profileRepository = mock(ProfileRepository.class);
-            service = new AdminReportService(reportRepository, profileRepository, CLOCK);
+            userRepository = mock(UserRepository.class);
+            service = new AdminReportService(reportRepository, userRepository, CLOCK);
         }
 
         @Test
@@ -190,7 +190,7 @@ class ReportServiceTest {
             Report withdrawn = report(8L, ReportStatus.DONE);
             ReflectionTestUtils.setField(withdrawn, "targetStage", userMap(30L, user(7L), true));
             when(reportRepository.findForAdmin(isNull(), any())).thenReturn(new PageImpl<>(List.of(withUsers, withdrawn)));
-            when(profileRepository.findAllById(any())).thenReturn(List.of(profile(1L, "reporter"), profile(2L, "target")));
+            when(userRepository.findAllById(any())).thenReturn(List.of(profile(1L, "reporter"), profile(2L, "target")));
 
             var page = service.getReports(null, 0, 20);
 
@@ -224,8 +224,8 @@ class ReportServiceTest {
         return category;
     }
 
-    private static Profile profile(Long userId, String nickname) {
-        Profile profile = new Profile(user(userId), nickname);
+    private static User profile(Long userId, String nickname) {
+        User profile = new User(user(userId), nickname);
         ReflectionTestUtils.setField(profile, "userId", userId);
         return profile;
     }

@@ -3,7 +3,7 @@ package com.seyoung5309.executorserver.domain.stage.service;
 import com.seyoung5309.executorserver.domain.guidebook.entity.Guidebook;
 import com.seyoung5309.executorserver.domain.guidebook.repository.GuidebookRepository;
 import com.seyoung5309.executorserver.domain.guidebook.repository.UserGuidebookRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultRequest;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse.RunResult;
@@ -33,7 +33,7 @@ public class StageResultService {
     private final StageAccessService stageAccessService;
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final GuidebookRepository guidebookRepository;
     private final UserGuidebookRepository userGuidebookRepository;
     private final Clock clock;
@@ -75,9 +75,9 @@ public class StageResultService {
         // 사용자 맵은 보상이 없다 (코인 파밍 방지). DB 값과 상관없이 서버에서 한 번 더 막는다.
         int rewardCoin = firstClear && stage.isOfficial() ? stage.getRewardCoin() : 0;
         if (rewardCoin > 0) {
-            profileRepository.addCoin(userId, rewardCoin);
+            userRepository.addCoin(userId, rewardCoin);
         }
-        int totalCoin = profileRepository.findCoinByUserId(userId)
+        int totalCoin = userRepository.findCoinByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
         List<UnlockedGuidebook> unlocked = unlockGuidebooks(userId, request.encounteredOrEmpty(), now);

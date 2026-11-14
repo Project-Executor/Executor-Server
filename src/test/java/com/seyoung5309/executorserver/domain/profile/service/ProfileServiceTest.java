@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.profile.service;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRepository;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
 import com.seyoung5309.executorserver.domain.item.entity.ItemType;
@@ -11,8 +11,8 @@ import com.seyoung5309.executorserver.domain.profile.dto.EquipmentResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.MyProfileResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.ProfileDetailResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.UpdateProfileRequest;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -41,24 +41,24 @@ import static org.mockito.Mockito.*;
 
 class ProfileServiceTest {
 
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private UserItemRepository userItemRepository;
     private UserStageRepository userStageRepository;
     private FriendRepository friendRepository;
     private ProfileService profileService;
 
-    private Profile me;
+    private User me;
 
     @BeforeEach
     void setUp() {
-        profileRepository = mock(ProfileRepository.class);
+        userRepository = mock(UserRepository.class);
         userItemRepository = mock(UserItemRepository.class);
         userStageRepository = mock(UserStageRepository.class);
         friendRepository = mock(FriendRepository.class);
-        profileService = new ProfileService(profileRepository, userItemRepository, userStageRepository, friendRepository);
+        profileService = new ProfileService(userRepository, userItemRepository, userStageRepository, friendRepository);
 
         me = profile(1L, "me@example.com", "debugger");
-        when(profileRepository.findWithUserById(1L)).thenReturn(Optional.of(me));
+        when(userRepository.findWithUserById(1L)).thenReturn(Optional.of(me));
     }
 
     // ---------- 내 프로필 ----------
@@ -76,7 +76,7 @@ class ProfileServiceTest {
 
     @Test
     void 탈퇴해서_프로필이_없으면_UNAUTHORIZED() {
-        when(profileRepository.findWithUserById(9L)).thenReturn(Optional.empty());
+        when(userRepository.findWithUserById(9L)).thenReturn(Optional.empty());
 
         assertErrorCode(() -> profileService.getMyProfile(9L), ErrorCode.UNAUTHORIZED);
     }
@@ -113,12 +113,12 @@ class ProfileServiceTest {
     void 지금_닉네임과_같으면_중복_검사를_하지_않는다() {
         profileService.updateMyProfile(1L, new UpdateProfileRequest("debugger", null, null));
 
-        verify(profileRepository, never()).existsByNickname(any());
+        verify(userRepository, never()).existsByNickname(any());
     }
 
     @Test
     void 다른_사람이_쓰는_닉네임이면_DUPLICATE_NICKNAME() {
-        when(profileRepository.existsByNickname("taken")).thenReturn(true);
+        when(userRepository.existsByNickname("taken")).thenReturn(true);
 
         assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("taken", null, null)),
                 ErrorCode.DUPLICATE_NICKNAME);
@@ -127,7 +127,7 @@ class ProfileServiceTest {
 
     @Test
     void 동시에_같은_닉네임으로_바꿔서_DB_제약에_걸리면_DUPLICATE_NICKNAME() {
-        doThrow(new DataIntegrityViolationException("dup")).when(profileRepository).flush();
+        doThrow(new DataIntegrityViolationException("dup")).when(userRepository).flush();
 
         assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("newname", null, null)),
                 ErrorCode.DUPLICATE_NICKNAME);
@@ -191,9 +191,9 @@ class ProfileServiceTest {
 
     @Test
     void 다른_사용자_프로필에는_클리어_수와_별_합계와_친구_여부가_들어간다() {
-        Profile other = profile(12L, "other@example.com", "nullptr");
+        User other = profile(12L, "other@example.com", "nullptr");
         other.changeComment("안녕하세요");
-        when(profileRepository.findById(12L)).thenReturn(Optional.of(other));
+        when(userRepository.findById(12L)).thenReturn(Optional.of(other));
         when(userStageRepository.summarizeOfficialStars(12L)).thenReturn(new StarSummary(7, 6, 5));
         when(friendRepository.areFriends(1L, 12L)).thenReturn(true);
 
@@ -204,7 +204,7 @@ class ProfileServiceTest {
 
     @Test
     void 없는_사용자면_NOT_FOUND() {
-        when(profileRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertErrorCode(() -> profileService.getProfile(1L, 99L), ErrorCode.NOT_FOUND);
     }
@@ -218,13 +218,13 @@ class ProfileServiceTest {
 
     @Test
     void 검색은_클라이언트가_보낸_정렬_조건을_버린다() {
-        Page<Profile> empty = new PageImpl<>(List.of());
-        when(profileRepository.searchByNickname(any(), anyLong(), any())).thenReturn(empty);
+        Page<User> empty = new PageImpl<>(List.of());
+        when(userRepository.searchByNickname(any(), anyLong(), any())).thenReturn(empty);
 
         profileService.searchByNickname(1L, " bug ", PageRequest.of(2, 10, Sort.by("user.password")));
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(profileRepository).searchByNickname(eq("bug"), eq(1L), captor.capture());
+        verify(userRepository).searchByNickname(eq("bug"), eq(1L), captor.capture());
         assertThat(captor.getValue().getSort().isSorted()).isFalse();
         assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
         assertThat(captor.getValue().getPageSize()).isEqualTo(10);
@@ -232,10 +232,10 @@ class ProfileServiceTest {
 
     // ---------- helpers ----------
 
-    private Profile profile(Long userId, String email, String nickname) {
-        User user = new User(email, "hash");
+    private User profile(Long userId, String email, String nickname) {
+        Account user = new Account(email, "hash");
         ReflectionTestUtils.setField(user, "id", userId);
-        Profile profile = new Profile(user, nickname);
+        User profile = new User(user, nickname);
         ReflectionTestUtils.setField(profile, "userId", userId);
         return profile;
     }
