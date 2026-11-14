@@ -5,7 +5,7 @@ Unity 퍼즐 게임 **Executor(집행자)** 의 백엔드 API 서버.
 
 - 배포 주소: `https://executor-server-production-032d.up.railway.app`
 - API 문서(Swagger UI): `/swagger-ui/index.html`
-- 상세 명세: [docs/api-spec.md](Executor-Server/docs/api-spec.md), 요구사항: [docs/requirements.md](Executor-Server/docs/requirements.md)
+- 상세 명세: [docs/api-spec.md](docs/api-spec.md), 요구사항: [docs/requirements.md](docs/requirements.md), 맵 데이터 구조: [docs/map-data.md](docs/map-data.md)
 
 ## 기술 스택
 
@@ -21,14 +21,16 @@ Unity 퍼즐 게임 **Executor(집행자)** 의 백엔드 API 서버.
 ## 저장소 구조
 
 ```
-Executor-Server/                  ← Railway Root Directory
+Executor-Server/                  ← 저장소 루트 = Railway Root Directory (/)
 ├── Dockerfile
 ├── build.gradle
 ├── .env.example                  ← 로컬 실행용 환경 변수 양식 (.env는 커밋 금지)
 ├── .env.test.example             ← 테스트 DB 계정 양식 (.env.test는 커밋 금지)
 ├── docs/
 │   ├── api-spec.md               ← API 명세 (요청·응답·오류 코드)
-│   └── requirements.md           ← 요구사항 정의서
+│   ├── requirements.md           ← 요구사항 정의서
+│   ├── map-data.md               ← 스테이지 map_data JSON 구조와 이동 규칙
+│   └── maps/                     ← 공식 스테이지 맵 JSON과 생성·검증 스크립트
 └── src/main/
     ├── java/com/seyoung5309/executorserver/
     │   ├── domain/               ← 기능별 패키지 (controller / service / repository / entity / dto)
@@ -59,7 +61,6 @@ Executor-Server/                  ← Railway Root Directory
 2. 서버 실행
 
    ```bash
-   cd Executor-Server
    ./gradlew bootRun            # 포트를 바꾸려면 PORT=8090 ./gradlew bootRun
    ```
 3. `http://localhost:8080/swagger-ui/index.html` 에서 확인한다.
@@ -111,9 +112,9 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 ## 배포 (Railway)
 
 - `main`에 머지하면 Railway가 자동으로 빌드·배포한다. `develop`은 배포되지 않는다.
-- 빌드는 `Executor-Server/Dockerfile` (JDK 21로 `bootJar` 빌드 → JRE 21 이미지에서 `executor-server.jar` 실행).
+- 빌드는 루트의 `Dockerfile` (JDK 21로 `bootJar` 빌드 → JRE 21 이미지에서 `executor-server.jar` 실행).
 - Railway 서비스 설정
-  - Root Directory: `/Executor-Server`
+  - Root Directory: 비워 둔다 (저장소 루트)
   - Variables: `MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`, `REDISHOST`, `REDISPORT`, `REDISPASSWORD`는 `${{MySQL.MYSQLHOST}}`처럼 각 서비스 값을 참조하고, `JWT_SECRET`은 직접 넣는다.
   - 서버 포트는 Railway가 넣는 `PORT`를 따른다.
 - 배포 전 확인: 새 마이그레이션이 있으면 운영 DB에 먼저 실행했는지.
