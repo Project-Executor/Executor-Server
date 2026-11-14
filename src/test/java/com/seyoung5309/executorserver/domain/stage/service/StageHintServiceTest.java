@@ -1,7 +1,7 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.HintResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
@@ -34,7 +34,7 @@ class StageHintServiceTest {
     private StageAccessService stageAccessService;
     private UserItemRepository userItemRepository;
     private UserStageHintRepository userStageHintRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private StageHintService service;
 
     @BeforeEach
@@ -42,10 +42,10 @@ class StageHintServiceTest {
         stageAccessService = mock(StageAccessService.class);
         userItemRepository = mock(UserItemRepository.class);
         userStageHintRepository = mock(UserStageHintRepository.class);
-        profileRepository = mock(ProfileRepository.class);
+        userRepository = mock(UserRepository.class);
         service = new StageHintService(stageAccessService, new MapDataParser(JsonMapper.builder().build()),
-                userItemRepository, userStageHintRepository, profileRepository, Clock.fixed(NOW, ZoneOffset.UTC));
-        when(profileRepository.lockOne(USER_ID)).thenReturn(Optional.of(USER_ID));
+                userItemRepository, userStageHintRepository, userRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        when(userRepository.lockOne(USER_ID)).thenReturn(Optional.of(USER_ID));
         // 기본은 처음 보는 힌트
         when(userStageHintRepository.insertIfAbsent(anyLong(), anyLong(), anyInt(), any())).thenReturn(1);
     }
@@ -62,8 +62,8 @@ class StageHintServiceTest {
         assertThat(response.content().asString()).isEqualTo("봇은 두 칸마다 움직인다.");
         assertThat(response.charged()).isTrue();
         assertThat(response.remainingHintItems()).isEqualTo(2L);
-        InOrder order = inOrder(profileRepository, userStageHintRepository, userItemRepository);
-        order.verify(profileRepository).lockOne(USER_ID);
+        InOrder order = inOrder(userRepository, userStageHintRepository, userItemRepository);
+        order.verify(userRepository).lockOne(USER_ID);
         order.verify(userStageHintRepository).insertIfAbsent(USER_ID, STAGE_ID, 1, NOW);
         order.verify(userItemRepository).useOneHint(USER_ID);
     }

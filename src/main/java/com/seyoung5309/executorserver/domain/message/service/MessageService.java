@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.message.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRepository;
 import com.seyoung5309.executorserver.domain.message.dto.MessageResponse;
 import com.seyoung5309.executorserver.domain.message.dto.MessageRoomResponse;
@@ -9,8 +9,8 @@ import com.seyoung5309.executorserver.domain.message.dto.UnreadCountResponse;
 import com.seyoung5309.executorserver.domain.message.entity.Message;
 import com.seyoung5309.executorserver.domain.message.repository.MessageRepository;
 import com.seyoung5309.executorserver.domain.message.repository.RoomRow;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.PageResponse;
@@ -37,8 +37,8 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final FriendRepository friendRepository;
-    private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final Clock clock;
 
     /**
@@ -54,8 +54,8 @@ public class MessageService {
         if (!friendRepository.areFriends(senderId, receiverId)) {
             throw new BusinessException(ErrorCode.NOT_FRIEND);
         }
-        Message message = messageRepository.save(new Message(userRepository.getReferenceById(senderId),
-                userRepository.getReferenceById(receiverId), content, clock.instant()));
+        Message message = messageRepository.save(new Message(accountRepository.getReferenceById(senderId),
+                accountRepository.getReferenceById(receiverId), content, clock.instant()));
         return new SendMessageResponse(message.getId(), message.getCreatedAt());
     }
 
@@ -70,8 +70,8 @@ public class MessageService {
         }
         Map<Long, Message> lastMessages = messageRepository.findAllById(rows.stream().map(RoomRow::getLastMessageId).toList())
                 .stream().collect(Collectors.toMap(Message::getId, Function.identity()));
-        Map<Long, Profile> partners = profileRepository.findAllById(rows.stream().map(RoomRow::getPartnerId).toList())
-                .stream().collect(Collectors.toMap(Profile::getUserId, Function.identity()));
+        Map<Long, User> partners = userRepository.findAllById(rows.stream().map(RoomRow::getPartnerId).toList())
+                .stream().collect(Collectors.toMap(User::getUserId, Function.identity()));
 
         return rows.stream()
                 .filter(row -> partners.containsKey(row.getPartnerId()) && lastMessages.containsKey(row.getLastMessageId()))

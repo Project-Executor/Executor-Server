@@ -139,7 +139,7 @@
 
 ### POST `/auth/signup` 🔓
 
-회원가입. `users`와 `profiles`를 함께 만든다.
+회원가입. `accounts`(로그인 계정)와 `users`(닉네임·코인 등 사용자 정보)를 함께 만든다.
 
 **Request**
 ```json

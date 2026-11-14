@@ -9,8 +9,8 @@ import com.seyoung5309.executorserver.domain.item.entity.UserItem;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
 import com.seyoung5309.executorserver.domain.item.repository.OwnedItemRow;
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +39,7 @@ class ItemServiceTest {
 
     private ItemRepository itemRepository;
     private UserItemRepository userItemRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private ItemService service;
 
     private final Item skin = item(3L, ItemType.SKIN, "다크 모드 집행자", 300);
@@ -50,8 +50,8 @@ class ItemServiceTest {
     void setUp() {
         itemRepository = mock(ItemRepository.class);
         userItemRepository = mock(UserItemRepository.class);
-        profileRepository = mock(ProfileRepository.class);
-        service = new ItemService(itemRepository, userItemRepository, profileRepository,
+        userRepository = mock(UserRepository.class);
+        service = new ItemService(itemRepository, userItemRepository, userRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -87,9 +87,9 @@ class ItemServiceTest {
     void 스킨을_사면_코인이_빠지고_1개_지급된다() {
         givenActive(skin);
         when(userItemRepository.findQuantity(USER_ID, 3L)).thenReturn(Optional.empty(), Optional.of(1));
-        when(profileRepository.spendCoin(USER_ID, 300)).thenReturn(1);
+        when(userRepository.spendCoin(USER_ID, 300)).thenReturn(1);
         when(userItemRepository.insertIfAbsent(USER_ID, 3L, NOW)).thenReturn(1);
-        when(profileRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(200));
+        when(userRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(200));
 
         PurchaseResponse response = service.purchase(USER_ID, 3L, 5);
 
@@ -103,14 +103,14 @@ class ItemServiceTest {
         when(userItemRepository.findQuantity(USER_ID, 5L)).thenReturn(Optional.of(1));
 
         assertErrorCode(() -> service.purchase(USER_ID, 5L, null), ErrorCode.ALREADY_OWNED);
-        verify(profileRepository, never()).spendCoin(anyLong(), anyInt());
+        verify(userRepository, never()).spendCoin(anyLong(), anyInt());
     }
 
     @Test
     void 동시_요청으로_지급이_0건이면_ALREADY_OWNED로_롤백된다() {
         givenActive(skin);
         when(userItemRepository.findQuantity(USER_ID, 3L)).thenReturn(Optional.empty());
-        when(profileRepository.spendCoin(USER_ID, 300)).thenReturn(1);
+        when(userRepository.spendCoin(USER_ID, 300)).thenReturn(1);
         when(userItemRepository.insertIfAbsent(USER_ID, 3L, NOW)).thenReturn(0);
 
         assertErrorCode(() -> service.purchase(USER_ID, 3L, null), ErrorCode.ALREADY_OWNED);
@@ -120,7 +120,7 @@ class ItemServiceTest {
     void 코인이_모자라면_NOT_ENOUGH_COIN이고_지급하지_않는다() {
         givenActive(skin);
         when(userItemRepository.findQuantity(USER_ID, 3L)).thenReturn(Optional.empty());
-        when(profileRepository.spendCoin(USER_ID, 300)).thenReturn(0);
+        when(userRepository.spendCoin(USER_ID, 300)).thenReturn(0);
 
         assertErrorCode(() -> service.purchase(USER_ID, 3L, null), ErrorCode.NOT_ENOUGH_COIN);
         verify(userItemRepository, never()).insertIfAbsent(anyLong(), anyLong(), any());
@@ -131,9 +131,9 @@ class ItemServiceTest {
     @Test
     void 힌트는_수량만큼_코인이_빠지고_보유_수량에_더해진다() {
         givenActive(hint);
-        when(profileRepository.spendCoin(USER_ID, 90)).thenReturn(1);
+        when(userRepository.spendCoin(USER_ID, 90)).thenReturn(1);
         when(userItemRepository.findQuantity(USER_ID, 9L)).thenReturn(Optional.of(5));
-        when(profileRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(310));
+        when(userRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(310));
 
         PurchaseResponse response = service.purchase(USER_ID, 9L, 3);
 
@@ -144,9 +144,9 @@ class ItemServiceTest {
     @Test
     void 힌트_수량을_빼면_1개() {
         givenActive(hint);
-        when(profileRepository.spendCoin(USER_ID, 30)).thenReturn(1);
+        when(userRepository.spendCoin(USER_ID, 30)).thenReturn(1);
         when(userItemRepository.findQuantity(USER_ID, 9L)).thenReturn(Optional.of(1));
-        when(profileRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(0));
+        when(userRepository.findCoinByUserId(USER_ID)).thenReturn(Optional.of(0));
 
         assertThat(service.purchase(USER_ID, 9L, null).spentCoin()).isEqualTo(30);
         verify(userItemRepository).addQuantity(USER_ID, 9L, 1, NOW);
@@ -159,7 +159,7 @@ class ItemServiceTest {
         assertErrorCode(() -> service.purchase(USER_ID, 9L, 0), ErrorCode.INVALID_INPUT);
         assertErrorCode(() -> service.purchase(USER_ID, 9L, 100), ErrorCode.INVALID_INPUT);
         assertErrorCode(() -> service.purchase(USER_ID, 9L, -1), ErrorCode.INVALID_INPUT);
-        verify(profileRepository, never()).spendCoin(anyLong(), anyInt());
+        verify(userRepository, never()).spendCoin(anyLong(), anyInt());
     }
 
     @Test
@@ -168,7 +168,7 @@ class ItemServiceTest {
         givenActive(expensive);
 
         assertErrorCode(() -> service.purchase(USER_ID, 10L, 2), ErrorCode.NOT_ENOUGH_COIN);
-        verify(profileRepository, never()).spendCoin(anyLong(), anyInt());
+        verify(userRepository, never()).spendCoin(anyLong(), anyInt());
     }
 
     @Test
@@ -182,9 +182,9 @@ class ItemServiceTest {
 
     @Test
     void 보유_아이템에_장착_여부가_표시된다() {
-        Profile profile = new Profile(user(USER_ID), "debugger");
+        User profile = new User(user(USER_ID), "debugger");
         profile.equipSkin(skin);
-        when(profileRepository.findById(USER_ID)).thenReturn(Optional.of(profile));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(profile));
         when(userItemRepository.findMyItems(USER_ID, null)).thenReturn(List.of(
                 userItem(skin, 1), userItem(theme, 1), userItem(hint, 4)));
 

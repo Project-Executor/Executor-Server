@@ -1,8 +1,8 @@
 package com.seyoung5309.executorserver.domain.report.service;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.report.dto.AdminReportResponse;
 import com.seyoung5309.executorserver.domain.report.dto.ReportStatusResponse;
 import com.seyoung5309.executorserver.domain.report.entity.Report;
@@ -35,7 +35,7 @@ import java.util.stream.Stream;
 public class AdminReportService {
 
     private final ReportRepository reportRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final Clock clock;
 
     /**
@@ -51,9 +51,9 @@ public class AdminReportService {
                 .flatMap(report -> Stream.of(idOf(report.getUser()), idOf(report.getTargetUser())))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<Long, Profile> profiles = userIds.isEmpty() ? Map.of()
-                : profileRepository.findAllById(userIds).stream()
-                        .collect(Collectors.toMap(Profile::getUserId, Function.identity()));
+        Map<Long, User> profiles = userIds.isEmpty() ? Map.of()
+                : userRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(User::getUserId, Function.identity()));
 
         return PageResponse.of(reports, report -> toResponse(report, profiles));
     }
@@ -87,7 +87,7 @@ public class AdminReportService {
         }
     }
 
-    private AdminReportResponse toResponse(Report report, Map<Long, Profile> profiles) {
+    private AdminReportResponse toResponse(Report report, Map<Long, User> profiles) {
         Stage stage = report.getTargetStage();
         return new AdminReportResponse(
                 report.getId(),
@@ -102,12 +102,12 @@ public class AdminReportService {
                 report.getHandledAt());
     }
 
-    private static UserSummary summary(User user, Map<Long, Profile> profiles) {
-        Profile profile = user == null ? null : profiles.get(user.getId());
+    private static UserSummary summary(Account user, Map<Long, User> profiles) {
+        User profile = user == null ? null : profiles.get(user.getId());
         return profile == null ? null : UserSummary.from(profile);
     }
 
-    private static Long idOf(User user) {
+    private static Long idOf(Account user) {
         return user == null ? null : user.getId();
     }
 }

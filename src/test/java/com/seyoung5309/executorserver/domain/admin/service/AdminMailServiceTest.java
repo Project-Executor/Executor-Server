@@ -1,7 +1,7 @@
 package com.seyoung5309.executorserver.domain.admin.service;
 
 import com.seyoung5309.executorserver.domain.admin.dto.AdminMailRequest;
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
 import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
@@ -32,16 +32,16 @@ class AdminMailServiceTest {
 
     private MailRepository mailRepository;
     private ItemRepository itemRepository;
-    private UserRepository userRepository;
+    private AccountRepository accountRepository;
     private AdminMailService service;
 
     @BeforeEach
     void setUp() {
         mailRepository = mock(MailRepository.class);
         itemRepository = mock(ItemRepository.class);
-        userRepository = mock(UserRepository.class);
-        service = new AdminMailService(mailRepository, itemRepository, userRepository, Clock.fixed(NOW, ZoneOffset.UTC));
-        when(userRepository.findAllById(any())).thenAnswer(inv -> {
+        accountRepository = mock(AccountRepository.class);
+        service = new AdminMailService(mailRepository, itemRepository, accountRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        when(accountRepository.findAllById(any())).thenAnswer(inv -> {
             Collection<Long> ids = inv.getArgument(0);
             return ids.stream().filter(id -> id < 100).map(id -> user(id)).toList();
         });

@@ -10,8 +10,8 @@ import com.seyoung5309.executorserver.domain.profile.dto.EquipmentResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.MyProfileResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.ProfileDetailResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.UpdateProfileRequest;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -30,13 +30,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ProfileService {
 
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final UserItemRepository userItemRepository;
     private final UserStageRepository userStageRepository;
     private final FriendRepository friendRepository;
 
     public boolean isNicknameAvailable(String nickname) {
-        return !profileRepository.existsByNickname(nickname.trim());
+        return !userRepository.existsByNickname(nickname.trim());
     }
 
     public MyProfileResponse getMyProfile(Long userId) {
@@ -50,7 +50,7 @@ public class ProfileService {
      */
     @Transactional
     public MyProfileResponse updateMyProfile(Long userId, UpdateProfileRequest request) {
-        Profile profile = findMyProfile(userId);
+        User profile = findMyProfile(userId);
 
         if (request.nickname() != null) {
             String nickname = request.nickname().trim();
@@ -58,7 +58,7 @@ public class ProfileService {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 2~20자여야 합니다.");
             }
             if (!nickname.equals(profile.getNickname())) {
-                if (profileRepository.existsByNickname(nickname)) {
+                if (userRepository.existsByNickname(nickname)) {
                     throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
                 }
                 profile.changeNickname(nickname);
@@ -79,7 +79,7 @@ public class ProfileService {
         }
 
         try {
-            profileRepository.flush();
+            userRepository.flush();
         } catch (DataIntegrityViolationException e) {
             // 중복 확인과 저장 사이에 다른 사용자가 같은 닉네임을 먼저 가져간 경우
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
@@ -94,7 +94,7 @@ public class ProfileService {
      */
     @Transactional
     public EquipmentResponse updateEquipment(Long userId, EquipmentRequest request) {
-        Profile profile = findMyProfile(userId);
+        User profile = findMyProfile(userId);
 
         profile.equipSkin(findOwnedItem(userId, request.skinItemId(), ItemType.SKIN));
         profile.equipTheme(findOwnedItem(userId, request.themeItemId(), ItemType.THEME));
@@ -108,7 +108,7 @@ public class ProfileService {
      * @throws BusinessException NOT_FOUND
      */
     public ProfileDetailResponse getProfile(Long viewerId, Long targetUserId) {
-        Profile profile = profileRepository.findById(targetUserId)
+        User profile = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         StarSummary stars = userStageRepository.summarizeOfficialStars(targetUserId);
 
@@ -130,14 +130,14 @@ public class ProfileService {
     public PageResponse<UserSummary> searchByNickname(Long viewerId, String keyword, Pageable pageable) {
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return PageResponse.of(
-                profileRepository.searchByNickname(escapeLike(keyword.trim()), viewerId, pageOnly),
+                userRepository.searchByNickname(escapeLike(keyword.trim()), viewerId, pageOnly),
                 UserSummary::from
         );
     }
 
-    private Profile findMyProfile(Long userId) {
+    private User findMyProfile(Long userId) {
         // 토큰은 유효하지만 탈퇴로 프로필이 없는 경우
-        return profileRepository.findWithUserById(userId)
+        return userRepository.findWithUserById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
     }
 

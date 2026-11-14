@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.report.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -24,7 +24,7 @@ public class Report {
     /** 신고자 (탈퇴 시 NULL) */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User user;
+    private Account user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
@@ -32,7 +32,7 @@ public class Report {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_user_id")
-    private User targetUser;
+    private Account targetUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_stage_id")
@@ -57,7 +57,7 @@ public class Report {
     private Instant handledAt;
 
     /** 접수 상태(RECEIVED)로 만든다. 대상 규칙(카테고리별 필수 여부 등)은 서비스에서 검사한다 */
-    public Report(User user, ReportCategory category, User targetUser, Stage targetStage,
+    public Report(Account user, ReportCategory category, Account targetUser, Stage targetStage,
                   String title, String comment, Instant now) {
         this.user = user;
         this.category = category;

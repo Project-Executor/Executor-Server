@@ -25,7 +25,7 @@
 --  3. stages: 공식 스테이지는 operation_id/stage_no NOT NULL + creator_id NULL,
 --             사용자 맵은 operation_id/stage_no NULL + creator_id NOT NULL + reward_coin = 0
 --  4. stages: 사용자 맵은 제작자가 직접 클리어한 기록(user_stages)이 있어야 is_public = TRUE 가능
---  5. profiles: equipped_*_id는 본인이 보유한 해당 종류(SKIN/THEME) 아이템만
+--  5. users: equipped_*_id는 본인이 보유한 해당 종류(SKIN/THEME) 아이템만
 --  6. mails: reward_item_id가 NULL이면 reward_item_quantity = 0
 --  7. reports: 버그 제보·기타가 아니면 target_user_id / target_stage_id 중 하나 필수 (둘 다 지정 불가)
 --
@@ -36,7 +36,7 @@
 --  우편 수령      : UPDATE mails SET claimed_at = NOW()
 --                  WHERE id = ? AND receiver_id = ? AND claimed_at IS NULL
 --                    AND (expires_at IS NULL OR expires_at > NOW());
---  코인 차감      : UPDATE profiles SET coin = coin - ? WHERE user_id = ? AND coin >= ?;
+--  코인 차감      : UPDATE users SET coin = coin - ? WHERE user_id = ? AND coin >= ?;
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -46,8 +46,8 @@ SET NAMES utf8mb4;
 -- 1. 계정 / 프로필
 -- =====================================================================
 
--- 계정 (인증 정보만 보관)
-CREATE TABLE users (
+-- 로그인 계정 (인증 정보만 보관. 게임 정보는 users)
+CREATE TABLE accounts (
     id          BIGINT          NOT NULL AUTO_INCREMENT COMMENT '계정 ID',
     email       VARCHAR(255)    NOT NULL                COMMENT '이메일 (로그인 ID)',
     password    VARCHAR(255)    NOT NULL                COMMENT 'BCrypt 해시',
@@ -55,11 +55,11 @@ CREATE TABLE users (
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
 
     PRIMARY KEY (id),
-    UNIQUE KEY uk_users_email (email)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '계정';
+    UNIQUE KEY uk_accounts_email (email)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '로그인 계정';
 
 
--- 상점 아이템 (profiles가 장착 아이템으로 참조하므로 먼저 생성)
+-- 상점 아이템 (users가 장착 아이템으로 참조하므로 먼저 생성)
 CREATE TABLE items (
     id          BIGINT          NOT NULL AUTO_INCREMENT COMMENT '아이템 ID',
     name        VARCHAR(100)    NOT NULL                COMMENT '아이템 이름',
@@ -76,8 +76,8 @@ CREATE TABLE items (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '상점 아이템';
 
 
--- 프로필 (users와 1:1)
-CREATE TABLE profiles (
+-- 사용자 (프로필·코인·장착 아이템, accounts와 1:1)
+CREATE TABLE users (
     user_id           BIGINT        NOT NULL              COMMENT '사용자 ID',
     nickname          VARCHAR(20)   NOT NULL              COMMENT '닉네임 (친구 검색용, 중복 불가)',
     character_name    VARCHAR(20)       NULL              COMMENT '튜토리얼에서 입력하는 집행자 이름 (중복 허용, 입력 전 NULL)',
@@ -87,15 +87,15 @@ CREATE TABLE profiles (
     equipped_theme_id BIGINT            NULL              COMMENT '장착한 테마 (NULL = 기본)',
 
     PRIMARY KEY (user_id),
-    UNIQUE KEY uk_profiles_nickname (nickname),
-    CONSTRAINT chk_profiles_coin CHECK (coin >= 0),
-    CONSTRAINT fk_profiles_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    CONSTRAINT fk_profiles_skin
+    UNIQUE KEY uk_users_nickname (nickname),
+    CONSTRAINT chk_users_coin CHECK (coin >= 0),
+    CONSTRAINT fk_users_account
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
+    CONSTRAINT fk_users_skin
         FOREIGN KEY (equipped_skin_id) REFERENCES items (id) ON DELETE SET NULL,
-    CONSTRAINT fk_profiles_theme
+    CONSTRAINT fk_users_theme
         FOREIGN KEY (equipped_theme_id) REFERENCES items (id) ON DELETE SET NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '프로필';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자';
 
 
 -- =====================================================================
@@ -113,9 +113,9 @@ CREATE TABLE friends (
     UNIQUE KEY uk_friends_pair (user_id, friend_id),
     KEY idx_friends_friend (friend_id),
     CONSTRAINT fk_friends_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_friends_friend
-        FOREIGN KEY (friend_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (friend_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '친구';
 
 
@@ -134,9 +134,9 @@ CREATE TABLE friend_requests (
     KEY idx_friend_requests_receiver (receiver_id, status),
     CONSTRAINT chk_friend_requests_status CHECK (status IN ('PENDING', 'ACCEPTED', 'REJECTED')),
     CONSTRAINT fk_friend_requests_sender
-        FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_friend_requests_receiver
-        FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (receiver_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '친구 요청';
 
 
@@ -153,9 +153,9 @@ CREATE TABLE messages (
     KEY idx_messages_receiver (receiver_id, is_read, created_at),
     KEY idx_messages_sender (sender_id, created_at),
     CONSTRAINT fk_messages_sender
-        FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_messages_receiver
-        FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (receiver_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '메시지';
 
 
@@ -206,7 +206,7 @@ CREATE TABLE stages (
     CONSTRAINT fk_stages_operation
         FOREIGN KEY (operation_id) REFERENCES operations (id) ON DELETE RESTRICT,
     CONSTRAINT fk_stages_creator
-        FOREIGN KEY (creator_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (creator_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '스테이지';
 
 
@@ -230,7 +230,7 @@ CREATE TABLE user_stages (
     CONSTRAINT chk_user_stages_best_moves CHECK (best_moves IS NULL OR best_moves >= 1),
     CONSTRAINT chk_user_stages_play_count CHECK (play_count >= 0),
     CONSTRAINT fk_user_stages_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_user_stages_stage
         FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 스테이지 기록';
@@ -251,7 +251,7 @@ CREATE TABLE user_stage_hints (
     KEY idx_user_stage_hints_stage (stage_id),
     CONSTRAINT chk_user_stage_hints_index CHECK (hint_index >= 0),
     CONSTRAINT fk_user_stage_hints_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_user_stage_hints_stage
         FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자가 본 힌트';
@@ -290,7 +290,7 @@ CREATE TABLE user_guidebooks (
     UNIQUE KEY uk_user_guidebooks (user_id, guidebook_id),
     KEY idx_user_guidebooks_guidebook (guidebook_id),
     CONSTRAINT fk_user_guidebooks_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_user_guidebooks_guidebook
         FOREIGN KEY (guidebook_id) REFERENCES guidebooks (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 도감';
@@ -301,7 +301,7 @@ CREATE TABLE user_guidebooks (
 -- =====================================================================
 
 -- 사용자의 보유 아이템
---  - 구매 시 profiles.coin 차감과 INSERT/수량 증가를 하나의 트랜잭션으로 처리
+--  - 구매 시 users.coin 차감과 INSERT/수량 증가를 하나의 트랜잭션으로 처리
 --  - SKIN/THEME는 quantity = 1 고정, 이미 보유 중이면 구매 불가 (우편 보상이면 코인으로 환산 등 앱에서 처리)
 --  - HINT는 ON DUPLICATE KEY UPDATE quantity = quantity + ? 로 증가, 사용 시 감소 (0이 되어도 행 유지)
 CREATE TABLE user_items (
@@ -316,7 +316,7 @@ CREATE TABLE user_items (
     KEY idx_user_items_item (item_id),
     CONSTRAINT chk_user_items_quantity CHECK (quantity >= 0),
     CONSTRAINT fk_user_items_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
     -- 이미 구매한 사용자가 있는 아이템이 사라지지 않도록 RESTRICT (판매 중단은 is_active = FALSE)
     CONSTRAINT fk_user_items_item
         FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE RESTRICT
@@ -342,7 +342,7 @@ CREATE TABLE mails (
     CONSTRAINT chk_mails_reward_coin CHECK (reward_coin >= 0),
     CONSTRAINT chk_mails_reward_qty CHECK (reward_item_quantity >= 0),
     CONSTRAINT fk_mails_receiver
-        FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_mails_item
         FOREIGN KEY (reward_item_id) REFERENCES items (id) ON DELETE RESTRICT
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '우편';
@@ -382,11 +382,11 @@ CREATE TABLE reports (
     KEY idx_reports_target_stage (target_stage_id),
     CONSTRAINT chk_reports_status CHECK (status IN ('RECEIVED', 'IN_PROGRESS', 'DONE')),
     CONSTRAINT fk_reports_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE SET NULL,
     CONSTRAINT fk_reports_category
         FOREIGN KEY (category_id) REFERENCES report_categories (id) ON DELETE RESTRICT,
     CONSTRAINT fk_reports_target_user
-        FOREIGN KEY (target_user_id) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (target_user_id) REFERENCES accounts (id) ON DELETE SET NULL,
     CONSTRAINT fk_reports_target_stage
         FOREIGN KEY (target_stage_id) REFERENCES stages (id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '신고';

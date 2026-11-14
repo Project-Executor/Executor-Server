@@ -2,8 +2,8 @@ package com.seyoung5309.executorserver.domain.admin.service;
 
 import com.seyoung5309.executorserver.domain.admin.dto.AdminMailRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminMailResponse;
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
 import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
@@ -29,7 +29,7 @@ public class AdminMailService {
 
     private final MailRepository mailRepository;
     private final ItemRepository itemRepository;
-    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
     private final Clock clock;
 
     /**
@@ -54,7 +54,7 @@ public class AdminMailService {
         if (receiverIds.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "receiverIds를 입력하거나 toAll을 true로 보내 주세요.");
         }
-        Set<Long> existing = userRepository.findAllById(receiverIds).stream().map(User::getId).collect(Collectors.toSet());
+        Set<Long> existing = accountRepository.findAllById(receiverIds).stream().map(Account::getId).collect(Collectors.toSet());
         List<Long> missing = receiverIds.stream().filter(id -> !existing.contains(id)).toList();
         if (!missing.isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "없는 사용자입니다: " + missing);

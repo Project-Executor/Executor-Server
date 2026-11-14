@@ -278,7 +278,17 @@
   async function loadSpec() {
     const r = await rawSend("GET", ORIGIN + "/v3/api-docs");
     if (r.status !== 200 || !r.json) {
-      $("ops").innerHTML = `<p class="status err">API 문서를 불러오지 못했습니다 (${r.status}). ${ORIGIN}/v3/api-docs 를 확인하세요.</p>`;
+      // 이 페이지는 API와 같은 주소에서 열려야 한다 (서버에 CORS 설정이 없어 다른 주소에서는 호출이 막힘)
+      const box = $("ops");
+      box.innerHTML = `
+        <p class="status err">API 문서를 불러오지 못했습니다 (${r.status || "연결 실패"}).</p>
+        <p class="muted">이 페이지는 Spring 서버가 제공하는 주소로 열어야 합니다.
+          Live Server나 파일 더블클릭(file://)으로 열면 API를 호출할 수 없습니다.</p>
+        <p class="muted">로컬: 서버를 실행(<code>./gradlew bootRun</code>)한 뒤 아래 주소로 여세요.</p>
+        <p><a href="http://localhost:8080/api-tester.html">http://localhost:8080/api-tester.html</a></p>
+        <p class="muted">배포 서버 (VPN 필요):</p>
+        <p><a href="https://executor-server-production-032d.up.railway.app/api-tester.html">https://executor-server-production-032d.up.railway.app/api-tester.html</a></p>`;
+      $("server").textContent = ORIGIN + " (API 서버가 아님)";
       return;
     }
     state.spec = r.json;

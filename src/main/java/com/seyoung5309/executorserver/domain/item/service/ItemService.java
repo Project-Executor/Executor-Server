@@ -8,8 +8,8 @@ import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
 import com.seyoung5309.executorserver.domain.item.repository.OwnedItemRow;
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class ItemService {
 
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final Clock clock;
 
     /**
@@ -75,7 +75,7 @@ public class ItemService {
         }
 
         int cost = totalCost(item.getPrice(), quantity);
-        if (profileRepository.spendCoin(userId, cost) == 0) {
+        if (userRepository.spendCoin(userId, cost) == 0) {
             throw new BusinessException(ErrorCode.NOT_ENOUGH_COIN, "코인이 부족합니다. (필요: " + cost + "코인)");
         }
 
@@ -86,7 +86,7 @@ public class ItemService {
         }
 
         int ownedQuantity = userItemRepository.findQuantity(userId, itemId).orElseThrow();
-        int remainingCoin = profileRepository.findCoinByUserId(userId).orElseThrow();
+        int remainingCoin = userRepository.findCoinByUserId(userId).orElseThrow();
         return new PurchaseResponse(itemId, ownedQuantity, cost, remainingCoin);
     }
 
@@ -96,7 +96,7 @@ public class ItemService {
      * @param itemType null이면 전체
      */
     public List<MyItemResponse> getMyItems(Long userId, ItemType itemType) {
-        Profile profile = profileRepository.findById(userId)
+        User profile = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "프로필을 찾을 수 없습니다."));
         Long skinId = profile.getEquippedSkinId();
         Long themeId = profile.getEquippedThemeId();

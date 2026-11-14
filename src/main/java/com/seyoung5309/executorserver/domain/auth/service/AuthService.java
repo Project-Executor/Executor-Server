@@ -5,10 +5,10 @@ import com.seyoung5309.executorserver.domain.auth.dto.LoginResponse;
 import com.seyoung5309.executorserver.domain.auth.dto.SignupRequest;
 import com.seyoung5309.executorserver.domain.auth.dto.SignupResponse;
 import com.seyoung5309.executorserver.domain.auth.dto.TokenResponse;
-import com.seyoung5309.executorserver.domain.auth.entity.User;
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.security.JwtProvider;
@@ -26,8 +26,8 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class AuthService {
 
+    private final AccountRepository accountRepository;
     private final UserRepository userRepository;
-    private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
@@ -35,13 +35,13 @@ public class AuthService {
     /** 없는 이메일로 로그인할 때도 비밀번호 비교를 한 번 수행해서 응답 시간으로 가입 여부를 알 수 없게 한다 */
     private final String dummyPasswordHash;
 
-    public AuthService(UserRepository userRepository,
-                       ProfileRepository profileRepository,
+    public AuthService(AccountRepository accountRepository,
+                       UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
                        RefreshTokenStore refreshTokenStore) {
+        this.accountRepository = accountRepository;
         this.userRepository = userRepository;
-        this.profileRepository = profileRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.refreshTokenStore = refreshTokenStore;
@@ -49,7 +49,7 @@ public class AuthService {
     }
 
     /**
-     * 회원가입. users와 profiles를 같은 트랜잭션에서 만든다.
+     * 회원가입. accounts와 users를 같은 트랜잭션에서 만든다.
      *
      * @throws BusinessException DUPLICATE_EMAIL, DUPLICATE_NICKNAME, INVALID_INPUT
      */
@@ -62,16 +62,16 @@ public class AuthService {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 2~20자여야 합니다.");
         }
 
-        if (userRepository.existsByEmail(email)) {
+        if (accountRepository.existsByEmail(email)) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
-        if (profileRepository.existsByNickname(nickname)) {
+        if (userRepository.existsByNickname(nickname)) {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
 
         try {
-            User user = userRepository.saveAndFlush(new User(email, passwordEncoder.encode(request.password())));
-            profileRepository.saveAndFlush(new Profile(user, nickname));
+            Account user = accountRepository.saveAndFlush(new Account(email, passwordEncoder.encode(request.password())));
+            userRepository.saveAndFlush(new User(user, nickname));
             return new SignupResponse(user.getId(), email, nickname);
         } catch (DataIntegrityViolationException e) {
             // 위의 중복 확인과 저장 사이에 다른 요청이 같은 값으로 먼저 가입한 경우
@@ -80,7 +80,7 @@ public class AuthService {
     }
 
     public boolean isEmailAvailable(String email) {
-        return !userRepository.existsByEmail(normalizeEmail(email));
+        return !accountRepository.existsByEmail(normalizeEmail(email));
     }
 
     /**
@@ -90,7 +90,7 @@ public class AuthService {
      * @throws BusinessException INVALID_CREDENTIALS
      */
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(normalizeEmail(request.email())).orElse(null);
+        Account user = accountRepository.findByEmail(normalizeEmail(request.email())).orElse(null);
         if (user == null) {
             passwordEncoder.matches(request.password(), dummyPasswordHash);
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
@@ -99,7 +99,7 @@ public class AuthService {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        Profile profile = profileRepository.findById(user.getId())
+        User profile = userRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("프로필이 없는 계정입니다: userId=" + user.getId()));
 
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getRole());
@@ -128,7 +128,7 @@ public class AuthService {
         Long userId = jwtProvider.parseRefreshToken(refreshToken);
 
         // 권한(role)이 바뀌었을 수 있으므로 DB에서 다시 읽는다. 탈퇴한 계정이면 거부
-        User user = userRepository.findById(userId)
+        Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         String newRefreshToken = jwtProvider.createRefreshToken(userId);
@@ -152,7 +152,7 @@ public class AuthService {
     }
 
     /**
-     * 회원 탈퇴. 비밀번호를 다시 확인한 뒤 users 행을 지운다.
+     * 회원 탈퇴. 비밀번호를 다시 확인한 뒤 accounts 행을 지운다.
      * 프로필·기록·아이템·친구·메시지·우편·제작 맵은 DB의 ON DELETE CASCADE로 함께 지워지고,
      * 신고 기록은 ON DELETE SET NULL로 남는다.
      *
@@ -160,14 +160,14 @@ public class AuthService {
      */
     @Transactional
     public void withdraw(Long userId, String password) {
-        User user = userRepository.findById(userId)
+        Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        userRepository.delete(user);
-        userRepository.flush();
+        accountRepository.delete(user);
+        accountRepository.flush();
 
         // Redis 삭제가 실패해도 탈퇴는 진행한다. 남은 Refresh Token은 재발급 시 계정이 없어서 거부된다.
         try {
@@ -188,10 +188,10 @@ public class AuthService {
 
     private BusinessException toDuplicateException(DataIntegrityViolationException e) {
         String message = String.valueOf(e.getMostSpecificCause().getMessage());
-        if (message.contains("uk_profiles_nickname")) {
+        if (message.contains("uk_users_nickname")) {
             return new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
-        if (message.contains("uk_users_email")) {
+        if (message.contains("uk_accounts_email")) {
             return new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
         throw e;

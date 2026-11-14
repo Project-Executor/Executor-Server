@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.global.response;
 
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
 
 /**
  * 다른 사용자를 표시할 때 쓰는 공통 객체 (API 명세서 0.4).
@@ -8,7 +8,7 @@ import com.seyoung5309.executorserver.domain.profile.entity.Profile;
  */
 public record UserSummary(Long userId, String nickname, Long equippedSkinId) {
 
-    public static UserSummary from(Profile profile) {
+    public static UserSummary from(User profile) {
         return new UserSummary(profile.getUserId(), profile.getNickname(), profile.getEquippedSkinId());
     }
 }

@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.friend.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.friend.dto.FriendRequestStatusResponse;
 import com.seyoung5309.executorserver.domain.friend.dto.FriendResponse;
 import com.seyoung5309.executorserver.domain.friend.entity.FriendRequest;
@@ -9,8 +9,8 @@ import com.seyoung5309.executorserver.domain.friend.repository.FriendRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRequestRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRow;
 import com.seyoung5309.executorserver.domain.friend.repository.RequestPair;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,22 +38,22 @@ class FriendServiceTest {
 
     private FriendRepository friendRepository;
     private FriendRequestRepository friendRequestRepository;
-    private ProfileRepository profileRepository;
     private UserRepository userRepository;
+    private AccountRepository accountRepository;
     private FriendService service;
 
     @BeforeEach
     void setUp() {
         friendRepository = mock(FriendRepository.class);
         friendRequestRepository = mock(FriendRequestRepository.class);
-        profileRepository = mock(ProfileRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new FriendService(friendRepository, friendRequestRepository, profileRepository, userRepository,
+        accountRepository = mock(AccountRepository.class);
+        service = new FriendService(friendRepository, friendRequestRepository, userRepository, accountRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC));
-        when(profileRepository.lockPair(anyLong(), anyLong())).thenReturn(List.of(1L, 2L));
+        when(userRepository.lockPair(anyLong(), anyLong())).thenReturn(List.of(1L, 2L));
         when(friendRepository.areFriends(anyLong(), anyLong())).thenCallRealMethod();
         when(friendRequestRepository.findForUpdate(anyLong(), anyLong())).thenReturn(Optional.empty());
-        when(userRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
+        when(accountRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
         when(friendRequestRepository.save(any())).thenAnswer(inv -> {
             FriendRequest saved = inv.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 30L);
@@ -68,19 +68,19 @@ class FriendServiceTest {
         FriendRequestStatusResponse response = service.send(ME, OTHER);
 
         assertThat(response).isEqualTo(new FriendRequestStatusResponse(30L, FriendRequestStatus.PENDING));
-        verify(profileRepository).lockPair(ME, OTHER);
+        verify(userRepository).lockPair(ME, OTHER);
         verify(friendRepository, never()).insertPair(anyLong(), anyLong(), any());
     }
 
     @Test
     void 자기_자신에게는_보낼_수_없고_잠금도_하지_않는다() {
         assertErrorCode(() -> service.send(ME, ME), ErrorCode.INVALID_INPUT);
-        verify(profileRepository, never()).lockPair(anyLong(), anyLong());
+        verify(userRepository, never()).lockPair(anyLong(), anyLong());
     }
 
     @Test
     void 없는_사용자에게_보내면_NOT_FOUND() {
-        when(profileRepository.lockPair(ME, 99L)).thenReturn(List.of(ME));
+        when(userRepository.lockPair(ME, 99L)).thenReturn(List.of(ME));
 
         assertErrorCode(() -> service.send(ME, 99L), ErrorCode.NOT_FOUND);
     }
@@ -143,7 +143,7 @@ class FriendServiceTest {
         givenRequest(request(30L, OTHER, ME, FriendRequestStatus.PENDING));
 
         assertThat(service.accept(ME, 30L).status()).isEqualTo(FriendRequestStatus.ACCEPTED);
-        verify(profileRepository).lockPair(OTHER, ME);
+        verify(userRepository).lockPair(OTHER, ME);
         verify(friendRepository).insertPair(1L, 2L, NOW);
     }
 
@@ -161,7 +161,7 @@ class FriendServiceTest {
 
         assertErrorCode(() -> service.accept(ME, 30L), ErrorCode.FORBIDDEN);
         assertErrorCode(() -> service.reject(ME, 30L), ErrorCode.FORBIDDEN);
-        verify(profileRepository, never()).lockPair(anyLong(), anyLong());
+        verify(userRepository, never()).lockPair(anyLong(), anyLong());
     }
 
     @Test
@@ -221,7 +221,7 @@ class FriendServiceTest {
     @Test
     void 친구_목록은_닉네임_순이다() {
         when(friendRepository.findFriendRows(ME)).thenReturn(List.of(new FriendRow(2L, OLD), new FriendRow(3L, NOW)));
-        when(profileRepository.findAllById(any())).thenReturn(List.of(profile(2L, "zeta"), profile(3L, "alpha")));
+        when(userRepository.findAllById(any())).thenReturn(List.of(profile(2L, "zeta"), profile(3L, "alpha")));
 
         List<FriendResponse> friends = service.getFriends(ME);
 
@@ -242,8 +242,8 @@ class FriendServiceTest {
         return request;
     }
 
-    private static Profile profile(Long userId, String nickname) {
-        Profile profile = new Profile(user(userId), nickname);
+    private static User profile(Long userId, String nickname) {
+        User profile = new User(user(userId), nickname);
         ReflectionTestUtils.setField(profile, "userId", userId);
         return profile;
     }

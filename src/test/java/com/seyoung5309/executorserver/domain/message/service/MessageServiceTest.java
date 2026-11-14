@@ -1,14 +1,14 @@
 package com.seyoung5309.executorserver.domain.message.service;
 
-import com.seyoung5309.executorserver.domain.auth.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.friend.repository.FriendRepository;
 import com.seyoung5309.executorserver.domain.message.dto.MessageRoomResponse;
 import com.seyoung5309.executorserver.domain.message.dto.SendMessageResponse;
 import com.seyoung5309.executorserver.domain.message.entity.Message;
 import com.seyoung5309.executorserver.domain.message.repository.MessageRepository;
 import com.seyoung5309.executorserver.domain.message.repository.RoomRow;
-import com.seyoung5309.executorserver.domain.profile.entity.Profile;
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,17 +40,17 @@ class MessageServiceTest {
 
     private MessageRepository messageRepository;
     private FriendRepository friendRepository;
-    private ProfileRepository profileRepository;
+    private UserRepository userRepository;
     private MessageService service;
 
     @BeforeEach
     void setUp() {
         messageRepository = mock(MessageRepository.class);
         friendRepository = mock(FriendRepository.class);
-        profileRepository = mock(ProfileRepository.class);
-        UserRepository userRepository = mock(UserRepository.class);
-        when(userRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
-        service = new MessageService(messageRepository, friendRepository, profileRepository, userRepository,
+        userRepository = mock(UserRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        when(accountRepository.getReferenceById(anyLong())).thenAnswer(inv -> user(inv.getArgument(0)));
+        service = new MessageService(messageRepository, friendRepository, userRepository, accountRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -92,7 +92,7 @@ class MessageServiceTest {
         when(messageRepository.findRooms(ME)).thenReturn(List.of(room(3L, 20L, 0), room(FRIEND, 10L, 2)));
         when(messageRepository.findAllById(any())).thenReturn(List.of(
                 message(10L, FRIEND, ME, "보스 몇 턴?", NOW.minusSeconds(60)), message(20L, ME, 3L, "ㅎㅇ", NOW)));
-        when(profileRepository.findAllById(any())).thenReturn(List.of(profile(FRIEND, "nullptr"), profile(3L, "segfault")));
+        when(userRepository.findAllById(any())).thenReturn(List.of(profile(FRIEND, "nullptr"), profile(3L, "segfault")));
 
         List<MessageRoomResponse> rooms = service.getRooms(ME);
 
@@ -109,7 +109,7 @@ class MessageServiceTest {
         when(messageRepository.findRooms(ME)).thenReturn(List.of());
 
         assertThat(service.getRooms(ME)).isEmpty();
-        verify(profileRepository, never()).findAllById(any());
+        verify(userRepository, never()).findAllById(any());
     }
 
     @Test
@@ -151,8 +151,8 @@ class MessageServiceTest {
         return message;
     }
 
-    private static Profile profile(Long userId, String nickname) {
-        Profile profile = new Profile(user(userId), nickname);
+    private static User profile(Long userId, String nickname) {
+        User profile = new User(user(userId), nickname);
         ReflectionTestUtils.setField(profile, "userId", userId);
         return profile;
     }

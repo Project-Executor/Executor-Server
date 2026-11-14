@@ -80,7 +80,7 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
     @Query("""
             select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
                 us.user.id, p.nickname, skin.id, us.bestMoves)
-            from UserStage us, Profile p
+            from UserStage us, User p
             left join p.equippedSkin skin
             where p.userId = us.user.id
               and us.stage.id = :stageId
@@ -93,7 +93,7 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
     @Query("""
             select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
                 us.user.id, p.nickname, skin.id, us.bestMoves)
-            from UserStage us, Profile p
+            from UserStage us, User p
             left join p.equippedSkin skin
             where p.userId = us.user.id
               and us.stage.id = :stageId

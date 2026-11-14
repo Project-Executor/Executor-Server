@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.stage.entity;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -36,7 +36,7 @@ public class Stage {
     /** 공식 스테이지는 NULL */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id")
-    private User creator;
+    private Account creator;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -91,7 +91,7 @@ public class Stage {
     }
 
     /** 사용자 맵을 만든다 (작전·번호 없음, 보상 0, 비공개, 일반 스테이지) */
-    public static Stage userMap(User creator, String title, String mapData, int parMoves) {
+    public static Stage userMap(Account creator, String title, String mapData, int parMoves) {
         Stage stage = new Stage();
         stage.creator = creator;
         stage.stageType = StageType.NORMAL;

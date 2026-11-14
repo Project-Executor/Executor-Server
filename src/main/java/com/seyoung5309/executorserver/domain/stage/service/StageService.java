@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
-import com.seyoung5309.executorserver.domain.profile.repository.ProfileRepository;
+import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.dto.MyRecordResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.OperationResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageDetailResponse;
@@ -35,7 +35,7 @@ public class StageService {
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
     private final UserStageHintRepository userStageHintRepository;
-    private final ProfileRepository profileRepository;
+    private final UserRepository userRepository;
     private final StageAccessService stageAccessService;
     private final MapDataParser mapDataParser;
 
@@ -102,7 +102,7 @@ public class StageService {
         if (stage.isOfficial()) {
             return null;
         }
-        return profileRepository.findById(stage.getCreator().getId())
+        return userRepository.findById(stage.getCreator().getId())
                 .map(UserSummary::from)
                 .orElse(null);
     }

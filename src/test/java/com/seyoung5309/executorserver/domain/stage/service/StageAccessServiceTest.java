@@ -1,6 +1,6 @@
 package com.seyoung5309.executorserver.domain.stage.service;
 
-import com.seyoung5309.executorserver.domain.auth.entity.User;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
@@ -28,8 +28,8 @@ class StageAccessServiceTest {
     private final Operation op = operation(1L, "op", 1);
     private final Stage s1 = officialStage(10L, op, 1);
     private final Stage s2 = officialStage(11L, op, 2);
-    private final User me = user(1L);
-    private final User other = user(2L);
+    private final Account me = user(1L);
+    private final Account other = user(2L);
 
     @BeforeEach
     void setUp() {
