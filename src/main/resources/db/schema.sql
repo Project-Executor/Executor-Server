@@ -79,8 +79,7 @@ CREATE TABLE items (
 -- 사용자 (프로필·코인·장착 아이템, accounts와 1:1)
 CREATE TABLE users (
     user_id           BIGINT        NOT NULL              COMMENT '사용자 ID',
-    nickname          VARCHAR(20)   NOT NULL              COMMENT '닉네임 (친구 검색용, 중복 불가)',
-    character_name    VARCHAR(20)       NULL              COMMENT '튜토리얼에서 입력하는 집행자 이름 (중복 허용, 입력 전 NULL)',
+    nickname          VARCHAR(20)       NULL              COMMENT '닉네임 (중복 불가, 가입 후 튜토리얼에서 입력, 입력 전 NULL)',
     comment           VARCHAR(255)      NULL              COMMENT '자기소개',
     coin              INT           NOT NULL DEFAULT 0    COMMENT '보유 코인',
     equipped_skin_id  BIGINT            NULL              COMMENT '장착한 스킨 (NULL = 기본)',

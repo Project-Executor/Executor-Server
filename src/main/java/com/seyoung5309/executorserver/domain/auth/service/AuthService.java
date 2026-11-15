@@ -49,30 +49,21 @@ public class AuthService {
     }
 
     /**
-     * 회원가입. accounts와 users를 같은 트랜잭션에서 만든다.
+     * 회원가입 (이메일 + 비밀번호). accounts와 users를 같은 트랜잭션에서 만든다.
+     * 닉네임은 비워 두고, 첫 로그인 후 튜토리얼에서 PATCH /profiles/me로 정한다.
      *
-     * @throws BusinessException DUPLICATE_EMAIL, DUPLICATE_NICKNAME, INVALID_INPUT
+     * @throws BusinessException DUPLICATE_EMAIL, INVALID_INPUT
      */
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         String email = normalizeEmail(request.email());
-        String nickname = request.nickname().trim();
-        if (nickname.length() < 2) {
-            // "  a  "처럼 공백 때문에 길이 검사를 통과한 경우
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 2~20자여야 합니다.");
-        }
-
         if (accountRepository.existsByEmail(email)) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
-        if (userRepository.existsByNickname(nickname)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
         try {
             Account user = accountRepository.saveAndFlush(new Account(email, passwordEncoder.encode(request.password())));
-            userRepository.saveAndFlush(new User(user, nickname));
-            return new SignupResponse(user.getId(), email, nickname);
+            userRepository.saveAndFlush(new User(user));
+            return new SignupResponse(user.getId(), email);
         } catch (DataIntegrityViolationException e) {
             // 위의 중복 확인과 저장 사이에 다른 요청이 같은 값으로 먼저 가입한 경우
             throw toDuplicateException(e);
@@ -114,7 +105,7 @@ public class AuthService {
                         user.getId(),
                         profile.getNickname(),
                         user.getRole(),
-                        profile.getCharacterName() != null
+                        profile.getNickname() != null
                 )
         );
     }
