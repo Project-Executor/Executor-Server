@@ -9,11 +9,15 @@ ASCII 그림으로 맵을 정의하고, map_data JSON(관리자 등록 형식)�
 그림 기호: # 벽, . 바닥, P 시작, E 출구, C 밀 수 있는 상자, B 부술 수 있는 블록, K 열쇠, D 잠긴 문, N 인물
 """
 import heapq
+import math
 import json
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
 from pathlib import Path
+
+# 턴 제한(parMoves) = 최소 턴 x TURN_SLACK (올림). 남은 턴이 -1이 되면 실패하므로 튜토리얼은 여유를 둔다
+TURN_SLACK = 1.5
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent / "tutorial"
 
@@ -336,13 +340,13 @@ for stage in STAGES:
         "stageNo": stage["stageNo"],
         "stageType": "TUTORIAL",
         "title": stage["title"],
-        "parMoves": moves,
+        "parMoves": math.ceil(moves * TURN_SLACK),
         "rewardCoin": stage["rewardCoin"],
         "mapData": md,
     }
     path_file = OUT / f"stage-{stage['stageNo']}.json"
     path_file.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     size = len(json.dumps(md, ensure_ascii=False).encode("utf-8"))
-    print(f"stage {stage['stageNo']} {stage['title']}: {md['width']}x{md['height']}, 최소 {moves}턴, 풀이 {path}, {size}B")
+    print(f"stage {stage['stageNo']} {stage['title']}: {md['width']}x{md['height']}, 최소 {moves}턴, 제한 {body['parMoves']}턴, 풀이 {path}, {size}B")
     for row in stage["grid"]:
         print("   ", row)
