@@ -86,10 +86,9 @@ class ProfileServiceTest {
     @Test
     void 보낸_필드만_바뀌고_공백은_지워진다() {
         MyProfileResponse response = profileService.updateMyProfile(1L,
-                new UpdateProfileRequest(null, "  오집행  ", " 버그 잡는 중 "));
+                new UpdateProfileRequest(null, " 버그 잡는 중 "));
 
         assertThat(response.nickname()).isEqualTo("debugger");
-        assertThat(response.characterName()).isEqualTo("오집행");
         assertThat(response.comment()).isEqualTo("버그 잡는 중");
     }
 
@@ -97,21 +96,21 @@ class ProfileServiceTest {
     void 자기소개에_빈_문자열을_보내면_지워진다() {
         me.changeComment("이전 소개");
 
-        MyProfileResponse response = profileService.updateMyProfile(1L, new UpdateProfileRequest(null, null, "   "));
+        MyProfileResponse response = profileService.updateMyProfile(1L, new UpdateProfileRequest(null, "   "));
 
         assertThat(response.comment()).isNull();
     }
 
     @Test
     void 닉네임을_바꿀_수_있다() {
-        MyProfileResponse response = profileService.updateMyProfile(1L, new UpdateProfileRequest("newname", null, null));
+        MyProfileResponse response = profileService.updateMyProfile(1L, new UpdateProfileRequest("newname", null));
 
         assertThat(response.nickname()).isEqualTo("newname");
     }
 
     @Test
     void 지금_닉네임과_같으면_중복_검사를_하지_않는다() {
-        profileService.updateMyProfile(1L, new UpdateProfileRequest("debugger", null, null));
+        profileService.updateMyProfile(1L, new UpdateProfileRequest("debugger", null));
 
         verify(userRepository, never()).existsByNickname(any());
     }
@@ -120,7 +119,7 @@ class ProfileServiceTest {
     void 다른_사람이_쓰는_닉네임이면_DUPLICATE_NICKNAME() {
         when(userRepository.existsByNickname("taken")).thenReturn(true);
 
-        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("taken", null, null)),
+        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("taken", null)),
                 ErrorCode.DUPLICATE_NICKNAME);
         assertThat(me.getNickname()).isEqualTo("debugger");
     }
@@ -129,19 +128,13 @@ class ProfileServiceTest {
     void 동시에_같은_닉네임으로_바꿔서_DB_제약에_걸리면_DUPLICATE_NICKNAME() {
         doThrow(new DataIntegrityViolationException("dup")).when(userRepository).flush();
 
-        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("newname", null, null)),
+        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest("newname", null)),
                 ErrorCode.DUPLICATE_NICKNAME);
     }
 
     @Test
-    void 공백뿐인_집행자_이름은_INVALID_INPUT() {
-        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest(null, "   ", null)),
-                ErrorCode.INVALID_INPUT);
-    }
-
-    @Test
     void 공백을_지우면_한_글자인_닉네임은_INVALID_INPUT() {
-        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest(" a ", null, null)),
+        assertErrorCode(() -> profileService.updateMyProfile(1L, new UpdateProfileRequest(" a ", null)),
                 ErrorCode.INVALID_INPUT);
     }
 

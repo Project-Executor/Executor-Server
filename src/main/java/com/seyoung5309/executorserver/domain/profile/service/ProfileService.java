@@ -65,14 +65,6 @@ public class ProfileService {
             }
         }
 
-        if (request.characterName() != null) {
-            String characterName = request.characterName().trim();
-            if (characterName.isEmpty()) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "집행자 이름은 1~20자여야 합니다.");
-            }
-            profile.changeCharacterName(characterName);
-        }
-
         if (request.comment() != null) {
             String comment = request.comment().trim();
             profile.changeComment(comment.isEmpty() ? null : comment);

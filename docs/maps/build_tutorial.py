@@ -9,11 +9,15 @@ ASCII 그림으로 맵을 정의하고, map_data JSON(관리자 등록 형식)�
 그림 기호: # 벽, . 바닥, P 시작, E 출구, C 밀 수 있는 상자, B 부술 수 있는 블록, K 열쇠, D 잠긴 문, N 인물
 """
 import heapq
+import math
 import json
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
 from pathlib import Path
+
+# 턴 제한(parMoves) = 최소 턴 x TURN_SLACK (올림). 남은 턴이 -1이 되면 실패하므로 튜토리얼은 여유를 둔다
+TURN_SLACK = 1.5
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent / "tutorial"
 
@@ -42,7 +46,7 @@ STAGES = [
         ],
         "story": {
             "intro": [{"type": "narration", "text": t} for t in NARRATION]
-                     + [{"type": "inputCharacterName", "text": "집행자의 이름을 입력하십시오."}],
+                     + [{"type": "inputNickname", "text": "집행자의 이름을 입력하십시오."}],
         },
         "guides": [
             {"on": "start", "text": "W, A, S, D 키를 눌러 이동할 수 있습니다. 한 번 움직일 때마다 1턴이 지납니다."},
@@ -97,7 +101,7 @@ STAGES = [
             "researcher": {
                 "start": "n1",
                 "nodes": {
-                    "n1": {"speaker": "연구원", "text": "아, 깨어났군요. {characterName} 집행자님, 맞으시죠?", "next": "n2"},
+                    "n1": {"speaker": "연구원", "text": "아, 깨어났군요. {nickname} 집행자님, 맞으시죠?", "next": "n2"},
                     "n2": {"speaker": "연구원", "text": "이곳은 집행자 훈련용 홀로그램 시뮬레이션입니다. 무엇이 궁금하신가요?",
                            "choices": [
                                {"text": "여기서 나가려면 어떻게 해야 하죠?", "next": "n3"},
@@ -147,7 +151,7 @@ STAGES = [
             "supervisor": {
                 "start": "n1",
                 "nodes": {
-                    "n1": {"speaker": "감독관", "text": "{characterName} 집행자님, 훈련은 여기까지입니다.", "next": "n2"},
+                    "n1": {"speaker": "감독관", "text": "{nickname} 집행자님, 훈련은 여기까지입니다.", "next": "n2"},
                     "n2": {"speaker": "감독관", "text": "이 열쇠로 문을 열고 시뮬레이션을 종료하십시오.", "next": "n3",
                            "effects": [{"type": "giveKey", "keyId": "lab"}]},
                     "n3": {"speaker": "감독관", "text": "실전에서도 모든 프로세스가 정상 종료되기를."},
@@ -157,7 +161,7 @@ STAGES = [
         "story": {
             "outro": [
                 {"type": "narration", "text": "홀로그램 시뮬레이션이 종료되었습니다."},
-                {"type": "narration", "text": "{characterName} 집행자, 첫 발령지로 이동합니다."},
+                {"type": "narration", "text": "{nickname} 집행자, 첫 발령지로 이동합니다."},
             ],
         },
         "guides": [
@@ -336,13 +340,13 @@ for stage in STAGES:
         "stageNo": stage["stageNo"],
         "stageType": "TUTORIAL",
         "title": stage["title"],
-        "parMoves": moves,
+        "parMoves": math.ceil(moves * TURN_SLACK),
         "rewardCoin": stage["rewardCoin"],
         "mapData": md,
     }
     path_file = OUT / f"stage-{stage['stageNo']}.json"
     path_file.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     size = len(json.dumps(md, ensure_ascii=False).encode("utf-8"))
-    print(f"stage {stage['stageNo']} {stage['title']}: {md['width']}x{md['height']}, 최소 {moves}턴, 풀이 {path}, {size}B")
+    print(f"stage {stage['stageNo']} {stage['title']}: {md['width']}x{md['height']}, 최소 {moves}턴, 제한 {body['parMoves']}턴, 풀이 {path}, {size}B")
     for row in stage["grid"]:
         print("   ", row)
