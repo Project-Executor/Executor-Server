@@ -139,14 +139,15 @@
 
 ### POST `/auth/signup` 🔓
 
-회원가입. `accounts`(로그인 계정)와 `users`(닉네임·코인 등 사용자 정보)를 함께 만든다.
+회원가입. 이메일과 비밀번호만 받는다. `accounts`(로그인 계정)와 `users`(닉네임·코인 등 사용자 정보)를 함께 만들고, 닉네임은 비워 둔다.
+닉네임은 첫 로그인 후 튜토리얼 1스테이지에서 정한다 (`GET /profiles/check-nickname`로 중복 확인 → `PATCH /profiles/me`).
+비밀번호 재입력 확인은 클라이언트에서 한다.
 
 **Request**
 ```json
 {
   "email": "executor@example.com",
-  "password": "password123!",
-  "nickname": "debugger"
+  "password": "password123!"
 }
 ```
 
@@ -154,14 +155,13 @@
 | --- | --- |
 | email | 이메일 형식, 최대 255자 |
 | password | 8~64자 |
-| nickname | 2~20자 |
 
 **Response** `201 Created`
 ```json
-{ "userId": 1, "email": "executor@example.com", "nickname": "debugger" }
+{ "userId": 1, "email": "executor@example.com" }
 ```
 
-**Error**: `400 INVALID_INPUT`, `409 DUPLICATE_EMAIL`, `409 DUPLICATE_NICKNAME`
+**Error**: `400 INVALID_INPUT`, `409 DUPLICATE_EMAIL`
 
 ---
 
@@ -178,10 +178,10 @@
   "accessToken": "eyJhbGciOi...",
   "refreshToken": "eyJhbGciOi...",
   "accessTokenExpiresIn": 1800,
-  "user": { "userId": 1, "nickname": "debugger", "role": "USER", "hasCharacterName": false }
+  "user": { "userId": 1, "nickname": null, "role": "USER", "hasNickname": false }
 }
 ```
-- `hasCharacterName`이 `false`면 클라이언트는 튜토리얼의 이름 입력 단계로 보낸다.
+- `hasNickname`이 `false`면(가입 후 아직 닉네임을 정하지 않음, `nickname`은 `null`) 클라이언트는 바로 튜토리얼 1스테이지로 보내 닉네임을 입력받는다.
 
 **Error**: `401 INVALID_CREDENTIALS`
 
@@ -256,7 +256,6 @@ Redis에 저장된 Refresh Token을 지운다.
   "userId": 1,
   "email": "executor@example.com",
   "nickname": "debugger",
-  "characterName": "오집행",
   "comment": "버그 잡는 중",
   "coin": 350,
   "equippedSkinId": 3,
@@ -274,13 +273,12 @@ Redis에 저장된 Refresh Token을 지운다.
 
 **Request**
 ```json
-{ "nickname": "debugger2", "characterName": "오집행", "comment": "버그 잡는 중" }
+{ "nickname": "debugger2", "comment": "버그 잡는 중" }
 ```
 
 | 필드 | 규칙 |
 | --- | --- |
 | nickname | 2~20자, 중복 불가 |
-| characterName | 1~20자, 중복 허용 |
 | comment | 최대 255자. 빈 문자열을 보내면 지워진다 |
 
 **Response** `200 OK`: `GET /profiles/me`와 같은 형식

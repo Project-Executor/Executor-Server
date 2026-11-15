@@ -109,7 +109,7 @@
   "researcher": {
     "start": "n1",
     "nodes": {
-      "n1": { "speaker": "연구원", "text": "아, 깨어났군요. {characterName} 집행자님, 맞으시죠?", "next": "n2" },
+      "n1": { "speaker": "연구원", "text": "아, 깨어났군요. {nickname} 집행자님, 맞으시죠?", "next": "n2" },
       "n2": { "speaker": "연구원", "text": "무엇이 궁금하신가요?",
               "choices": [
                 { "text": "여기서 나가려면?", "next": "n3" },
@@ -123,7 +123,7 @@
 ```
 
 - `start`에서 시작해 `next`를 따라간다. `choices`가 있으면 고른 선택지의 `next`로 간다. `next`와 `choices`가 모두 없으면 대화가 끝난다.
-- `{characterName}`은 내 프로필의 집행자 이름(`GET /profiles/me`의 `characterName`)으로 바꿔 보여 준다.
+- `{nickname}`은 내 닉네임(`GET /profiles/me`의 `nickname`)으로 바꿔 보여 준다.
 - `effects`: 그 노드를 보여 줄 때 실행한다.
 
 | effect type | 필드 | 설명 |
@@ -154,10 +154,10 @@
 "story": {
   "intro": [
     { "type": "narration", "text": "당신은 과거의 코드들을 정리하던 도중 ..." },
-    { "type": "inputCharacterName", "text": "집행자의 이름을 입력하십시오." }
+    { "type": "inputNickname", "text": "집행자의 이름을 입력하십시오." }
   ],
   "outro": [
-    { "type": "narration", "text": "{characterName} 집행자, 첫 발령지로 이동합니다." }
+    { "type": "narration", "text": "{nickname} 집행자, 첫 발령지로 이동합니다." }
   ]
 }
 ```
@@ -167,7 +167,7 @@
 | type | 설명 |
 | --- | --- |
 | `narration` | 나레이션 문장 한 줄 |
-| `inputCharacterName` | 집행자 이름 입력 창. 입력값은 `PATCH /profiles/me`의 `characterName`으로 저장한다. **이미 이름이 있으면 건너뛴다** (로그인 응답의 `hasCharacterName`) |
+| `inputNickname` | 닉네임 입력 창 (중복 확인 버튼 포함). `GET /profiles/check-nickname`로 확인하고 `PATCH /profiles/me`의 `nickname`으로 저장한다. **이미 닉네임이 있으면 건너뛴다** (로그인 응답의 `hasNickname`) |
 
 ## 7. hints
 
@@ -185,7 +185,7 @@
 
 | No | 제목 | 크기 | 가르치는 것 | 최소 턴 | 턴 제한 | 보상 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 시뮬레이션 1: 이동 | 9x7 | W·A·S·D 이동 (네 방향을 모두 써야 하는 꺾인 길). 시작 전에 도입 나레이션과 집행자 이름 입력 | 22 | 33 | 10 |
+| 1 | 시뮬레이션 1: 이동 | 9x7 | W·A·S·D 이동 (네 방향을 모두 써야 하는 꺾인 길). 시작 전에 도입 나레이션과 닉네임 입력 | 22 | 33 | 10 |
 | 2 | 시뮬레이션 2: 장애물 | 9x6 | 상자를 옆 빈칸으로 밀어 길 열기, 블록(hp 2) 두 번 부수기 | 12 | 18 | 10 |
 | 3 | 시뮬레이션 3: 열쇠 | 9x5 | 아래쪽 방에서 열쇠를 얻고 돌아와 문 열기 | 16 | 24 | 10 |
 | 4 | 시뮬레이션 4: 인물 | 11x5 | 3x3 안에서 대화, 선택지, 대화로 열쇠 받기 | 8 | 12 | 10 |

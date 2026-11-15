@@ -4,7 +4,7 @@ import com.seyoung5309.executorserver.domain.auth.entity.Role;
 
 /**
  * 로그인 응답.
- * user.hasCharacterName이 false면 클라이언트는 튜토리얼의 이름 입력 단계로 보낸다.
+ * user.hasNickname이 false면(가입 후 아직 닉네임을 정하지 않음) 클라이언트는 튜토리얼 1스테이지의 닉네임 입력으로 보낸다.
  */
 public record LoginResponse(
         String accessToken,
@@ -13,6 +13,6 @@ public record LoginResponse(
         LoginUserInfo user
 ) {
 
-    public record LoginUserInfo(Long userId, String nickname, Role role, boolean hasCharacterName) {
+    public record LoginUserInfo(Long userId, String nickname, Role role, boolean hasNickname) {
     }
 }

@@ -45,7 +45,7 @@ public class ProfileController {
     }
 
     @Operation(summary = "내 프로필 수정",
-            description = "보낸 필드만 수정한다. 튜토리얼의 집행자 이름 입력도 이 API(characterName)를 쓴다. comment에 빈 문자열을 보내면 지워진다.")
+            description = "보낸 필드만 수정한다. 튜토리얼의 닉네임 입력(가입 후 첫 설정)도 이 API(nickname)를 쓴다. comment에 빈 문자열을 보내면 지워진다.")
     @PatchMapping("/me")
     public MyProfileResponse updateMyProfile(@LoginUser Long userId,
                                              @Valid @RequestBody UpdateProfileRequest request) {

@@ -23,13 +23,9 @@ public class User {
     @JoinColumn(name = "user_id")
     private Account account;
 
-    @Column(nullable = false, unique = true, length = 20)
+    /** 닉네임 (중복 불가). 가입 직후에는 NULL이고 튜토리얼에서 정한다. 대사의 {nickname}에도 쓰인다 */
+    @Column(unique = true, length = 20)
     private String nickname;
-
-    /** 튜토리얼에서 입력하는 집행자 이름 (중복 허용) */
-    @Column(length = 20)
-    private String characterName;
-
     private String comment;
 
     @Column(nullable = false)
@@ -45,18 +41,18 @@ public class User {
     @JoinColumn(name = "equipped_theme_id")
     private Item equippedTheme;
 
+    /** 가입 직후의 사용자 (닉네임 없음) */
+    public User(Account account) {
+        this(account, null);
+    }
+
     public User(Account account, String nickname) {
         this.account = account;
         this.nickname = nickname;
         this.coin = 0;
     }
-
     public void changeNickname(String nickname) {
         this.nickname = nickname;
-    }
-
-    public void changeCharacterName(String characterName) {
-        this.characterName = characterName;
     }
 
     /** null이면 자기소개를 지운다 */

@@ -62,8 +62,8 @@ class AuthServiceTest {
     }
 
     @Test
-    void 가입하면_이메일은_소문자로_비밀번호는_해시로_저장되고_프로필이_함께_생긴다() {
-        SignupResponse response = authService.signup(new SignupRequest(" Executor@Example.COM ", "password123!", " debugger "));
+    void 가입하면_이메일은_소문자로_비밀번호는_해시로_저장되고_닉네임_없는_프로필이_함께_생긴다() {
+        SignupResponse response = authService.signup(new SignupRequest(" Executor@Example.COM ", "password123!"));
 
         ArgumentCaptor<Account> userCaptor = ArgumentCaptor.forClass(Account.class);
         verify(accountRepository).saveAndFlush(userCaptor.capture());
@@ -75,49 +75,26 @@ class AuthServiceTest {
 
         ArgumentCaptor<User> profileCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(profileCaptor.capture());
-        assertThat(profileCaptor.getValue().getNickname()).isEqualTo("debugger");
+        assertThat(profileCaptor.getValue().getNickname()).isNull();
         assertThat(profileCaptor.getValue().getCoin()).isZero();
 
-        assertThat(response).isEqualTo(new SignupResponse(1L, "executor@example.com", "debugger"));
+        assertThat(response).isEqualTo(new SignupResponse(1L, "executor@example.com"));
     }
 
     @Test
     void 이미_가입된_이메일이면_DUPLICATE_EMAIL() {
         when(accountRepository.existsByEmail("executor@example.com")).thenReturn(true);
 
-        assertErrorCode(() -> authService.signup(new SignupRequest("EXECUTOR@example.com", "password123!", "debugger")),
+        assertErrorCode(() -> authService.signup(new SignupRequest("EXECUTOR@example.com", "password123!")),
                 ErrorCode.DUPLICATE_EMAIL);
         verify(accountRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    void 이미_쓰는_닉네임이면_DUPLICATE_NICKNAME() {
-        when(userRepository.existsByNickname("debugger")).thenReturn(true);
-
-        assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
-                ErrorCode.DUPLICATE_NICKNAME);
-        verify(accountRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    void 공백을_지우면_한_글자인_닉네임은_INVALID_INPUT() {
-        assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "  a  ")),
-                ErrorCode.INVALID_INPUT);
-    }
-
-    @Test
-    void 동시에_같은_닉네임으로_가입해서_DB_제약에_걸리면_DUPLICATE_NICKNAME() {
-        when(userRepository.saveAndFlush(any(User.class))).thenThrow(uniqueViolation("uk_users_nickname"));
-
-        assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
-                ErrorCode.DUPLICATE_NICKNAME);
     }
 
     @Test
     void 동시에_같은_이메일로_가입해서_DB_제약에_걸리면_DUPLICATE_EMAIL() {
         when(accountRepository.saveAndFlush(any(Account.class))).thenThrow(uniqueViolation("uk_accounts_email"));
 
-        assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!", "debugger")),
+        assertErrorCode(() -> authService.signup(new SignupRequest("a@b.com", "password123!")),
                 ErrorCode.DUPLICATE_EMAIL);
     }
 
@@ -142,20 +119,19 @@ class AuthServiceTest {
         assertThat(jwtProvider.parseAccessToken(response.accessToken()).userId()).isEqualTo(5L);
         assertThat(jwtProvider.parseRefreshToken(response.refreshToken())).isEqualTo(5L);
         assertThat(response.accessTokenExpiresIn()).isEqualTo(1800);
-        assertThat(response.user()).isEqualTo(new LoginResponse.LoginUserInfo(5L, "debugger", Role.USER, false));
+        assertThat(response.user()).isEqualTo(new LoginResponse.LoginUserInfo(5L, "debugger", Role.USER, true));
         verify(refreshTokenStore).save(5L, response.refreshToken(), Duration.ofDays(14));
     }
 
     @Test
-    void 집행자_이름을_입력했으면_hasCharacterName이_true() {
+    void 닉네임을_아직_정하지_않았으면_hasNickname이_false() {
         Account user = existingUser(5L, "executor@example.com", "password123!");
-        User profile = new User(user, "debugger");
-        ReflectionTestUtils.setField(profile, "characterName", "오집행");
-        when(userRepository.findById(5L)).thenReturn(Optional.of(profile));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(new User(user)));
 
         LoginResponse response = authService.login(new LoginRequest("executor@example.com", "password123!"));
 
-        assertThat(response.user().hasCharacterName()).isTrue();
+        assertThat(response.user().hasNickname()).isFalse();
+        assertThat(response.user().nickname()).isNull();
     }
 
     @Test
