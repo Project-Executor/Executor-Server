@@ -983,6 +983,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 | Method | URL | 설명 | 요청 본문 / 비고 |
 | --- | --- | --- | --- |
+| GET | `/admin/operations` | 작전 전체 목록 | 표시 순서대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder` |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |

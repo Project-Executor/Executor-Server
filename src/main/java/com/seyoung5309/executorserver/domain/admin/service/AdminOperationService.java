@@ -2,7 +2,9 @@ package com.seyoung5309.executorserver.domain.admin.service;
 
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationResponse;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationTreeResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
+import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -11,6 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +28,16 @@ public class AdminOperationService {
 
     private final OperationRepository operationRepository;
     private final StageRepository stageRepository;
+
+    /** 작전 전체 (표시 순서) + 소속 공식 스테이지 요약 (번호 순). 쿼리 2개 */
+    @Transactional(readOnly = true)
+    public List<AdminOperationTreeResponse> getAll() {
+        Map<Long, List<Stage>> stagesByOperation = stageRepository.findAllOfficialInPlayOrder().stream()
+                .collect(Collectors.groupingBy(s -> s.getOperation().getId()));
+        return operationRepository.findAllByOrderBySortOrderAsc().stream()
+                .map(o -> AdminOperationTreeResponse.of(o, stagesByOperation.getOrDefault(o.getId(), List.of())))
+                .toList();
+    }
 
     /** @throws BusinessException DUPLICATE_VALUE(이름 또는 순서 중복) */
     public AdminOperationResponse create(AdminOperationRequest request) {

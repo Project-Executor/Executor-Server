@@ -50,6 +50,23 @@ class AdminServiceTest {
         }
 
         @Test
+        void 전체_목록은_작전마다_소속_스테이지를_묶고_스테이지가_없는_작전도_나온다() {
+            Operation tutorial = operation(1L, "Tutorial", 0);
+            Operation chapter1 = operation(2L, "1장", 1);
+            Operation empty = operation(3L, "2장", 2);
+            when(operationRepository.findAllByOrderBySortOrderAsc()).thenReturn(java.util.List.of(tutorial, chapter1, empty));
+            when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(java.util.List.of(
+                    officialStage(10L, tutorial, 1), officialStage(11L, tutorial, 2), officialStage(20L, chapter1, 1)));
+
+            var all = service.getAll();
+
+            assertThat(all).extracting(o -> o.name()).containsExactly("Tutorial", "1장", "2장");
+            assertThat(all.get(0).stages()).extracting(s -> s.stageId()).containsExactly(10L, 11L);
+            assertThat(all.get(1).stages()).extracting(s -> s.stageNo()).containsExactly(1);
+            assertThat(all.get(2).stages()).isEmpty();
+        }
+
+        @Test
         void 이름_앞뒤_공백을_지우고_빈_설명은_null로_저장한다() {
             AdminOperationResponse response = service.create(new AdminOperationRequest("  1장  ", "  ", 1));
 
