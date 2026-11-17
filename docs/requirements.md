@@ -50,10 +50,10 @@
 | 별 | 조건 | 저장 방식 |
 | --- | --- | --- |
 | ★1 | 스테이지 클리어 | `user_stages.first_cleared_at IS NOT NULL` |
-| ★2 | 기준 턴 이하로 클리어 | `user_stages.best_moves <= stages.par_moves` (계산) |
+| ★2 | 불안정 체크포인트(출구 포함)가 맵의 허용 개수(`map_data.stars.maxUnstable`, 기본 0) 이하로 클리어 ([map-data.md 3.4](map-data.md#34-별-조건)) | `user_stages.is_stable_cleared` |
 | ★3 | 숨겨진 버그 처치 또는 피스 수집 | `user_stages.is_hidden_found` |
 
-- 별은 여러 번 도전한 결과가 **누적**된다. 예를 들어 한 번은 기준 턴을 달성하고, 다른 판에서 숨겨진 요소를 찾으면 별 3개가 된다.
+- 별은 여러 번 도전한 결과가 **누적**된다. 예를 들어 한 번은 모든 구간을 턴 안에 통과하고, 다른 판에서 숨겨진 요소를 찾으면 별 3개가 된다.
 - 튜토리얼(`stage_type = TUTORIAL`)은 ★1만 있다.
 
 ### 2.3 스테이지 해금

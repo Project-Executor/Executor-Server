@@ -66,6 +66,8 @@ public final class StageFixtures {
         UserStage record = record(stage, 1);
         ReflectionTestUtils.setField(record, "bestMoves", bestMoves);
         ReflectionTestUtils.setField(record, "isHiddenFound", hiddenFound);
+        // 별 2: 마이그레이션(2026-11-18) 백필과 같은 기준으로 채운다 (튜토리얼 제외는 StarsResponse가 처리)
+        ReflectionTestUtils.setField(record, "isStableCleared", bestMoves <= stage.getParMoves());
         ReflectionTestUtils.setField(record, "firstClearedAt", Instant.parse("2026-11-10T00:00:00Z"));
         return record;
     }

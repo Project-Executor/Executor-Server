@@ -58,7 +58,8 @@ class StageResultServiceTest {
         guidebookRepository = mock(GuidebookRepository.class);
         userGuidebookRepository = mock(UserGuidebookRepository.class);
         service = new StageResultService(accessService, stageRepository, userStageRepository, userRepository,
-                guidebookRepository, userGuidebookRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+                guidebookRepository, userGuidebookRepository, Clock.fixed(NOW, ZoneOffset.UTC),
+                tools.jackson.databind.json.JsonMapper.builder().build());
 
         when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(tutorial, s1, s2));
         when(userRepository.findCoinByUserId(1L)).thenReturn(Optional.of(100));
@@ -87,14 +88,15 @@ class StageResultServiceTest {
     void 이미_클리어했으면_보상을_다시_주지_않는다() {
         givenRecord(s1, cleared(s1, 18, false));
 
-        StageResultResponse response = service.submit(1L, 10L, request(true, 25, false));
+        StageResultResponse response = service.submit(1L, 10L,
+                new StageResultRequest(true, 25, false, null, 1, null));
 
         verify(userRepository, never()).addCoin(anyLong(), anyInt());
         assertThat(response.firstClear()).isFalse();
         assertThat(response.rewardCoin()).isZero();
         assertThat(response.isNewBest()).isFalse();
         assertThat(response.bestMoves()).isEqualTo(18);
-        assertThat(response.thisRun().par()).as("25턴은 기준 20턴 초과").isFalse();
+        assertThat(response.thisRun().par()).as("불안정 1개 > 허용 0개").isFalse();
     }
 
     @Test
@@ -180,7 +182,7 @@ class StageResultServiceTest {
         when(userGuidebookRepository.unlock(1L, 7L, NOW)).thenReturn(0); // 이미 해금됨
 
         StageResultResponse response = service.submit(1L, 10L,
-                new StageResultRequest(false, null, null, List.of(3L, 7L, 3L, 999L)));
+                new StageResultRequest(false, null, null, List.of(3L, 7L, 3L, 999L), null, null));
 
         assertThat(response.unlockedGuidebooks())
                 .containsExactly(new StageResultResponse.UnlockedGuidebook(3L, GuidebookCategory.BUG, "NullPointerException"));
@@ -193,7 +195,66 @@ class StageResultServiceTest {
     }
 
     private StageResultRequest request(boolean cleared, Integer moves, boolean hidden) {
-        return new StageResultRequest(cleared, moves, hidden, null);
+        return new StageResultRequest(cleared, moves, hidden, null, null, null);
+    }
+
+    // ---------- 별 2 (체크포인트 안정·불안정, docs/map-data.md 3.4) ----------
+
+    @Test
+    void 불안정_수가_허용_개수_이하면_별_2를_얻고_기록에_남는다() {
+        withMapData(s1, "{\"stars\":{\"maxUnstable\":2}}");
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 40, false, null, 2, 5));
+
+        assertThat(response.thisRun().par()).as("기준 턴(20)을 넘겨도 불안정 2 <= 허용 2").isTrue();
+        assertThat(response.stars().par()).isTrue();
+        assertThat(record.isStableCleared()).isTrue();
+    }
+
+    @Test
+    void 허용_개수를_넘으면_별_2가_없다() {
+        withMapData(s1, "{\"stars\":{\"maxUnstable\":1}}");
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 10, false, null, 2, null));
+
+        assertThat(response.thisRun().par()).isFalse();
+        assertThat(response.stars().par()).isFalse();
+        assertThat(record.isStableCleared()).isFalse();
+    }
+
+    @Test
+    void unstableCount를_생략하면_0으로_보고_maxUnstable이_없으면_0이다() {
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, request(true, 99, false));
+
+        assertThat(response.thisRun().par()).as("체크포인트 없는 맵: 출구까지 안정").isTrue();
+        assertThat(record.isStableCleared()).isTrue();
+    }
+
+    @Test
+    void maxUnstable이_잘못된_값이면_0으로_본다() {
+        for (String mapData : List.of("{\"stars\":{\"maxUnstable\":-1}}", "{\"stars\":{\"maxUnstable\":\"3\"}}",
+                "{\"stars\":1}", "not json")) {
+            assertThat(service.maxUnstable(mapData)).as(mapData).isZero();
+        }
+        assertThat(service.maxUnstable("{\"stars\":{\"maxUnstable\":3}}")).isEqualTo(3);
+    }
+
+    @Test
+    void 클리어하지_못한_판은_불안정_수와_상관없이_별_2를_기록하지_않는다() {
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(false, null, null, null, 0, null));
+
+        assertThat(response.thisRun().par()).isFalse();
+        assertThat(record.isStableCleared()).isFalse();
     }
 
     private Guidebook guidebook(Long id, String title) {

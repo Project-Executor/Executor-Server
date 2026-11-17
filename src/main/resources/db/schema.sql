@@ -221,6 +221,7 @@ CREATE TABLE user_stages (
     stage_id          BIGINT     NOT NULL                COMMENT '스테이지 ID',
     best_moves        INT            NULL                COMMENT '클리어 시 최소 행동 횟수 (미클리어 NULL, 친구 기록 비교용)',
     is_hidden_found   BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '숨겨진 버그 처치 / 피스 수집 달성 여부',
+    is_stable_cleared BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '별 2: 불안정 체크포인트가 허용 개수(map_data.stars.maxUnstable) 이하로 클리어한 적 있음',
     play_count        INT        NOT NULL DEFAULT 0      COMMENT '도전 횟수',
     first_cleared_at  DATETIME       NULL                COMMENT '첫 클리어 날짜 (NULL -> 값 전환 시 보상 지급)',
     last_played_at    DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '마지막 플레이 날짜',

@@ -20,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,6 +40,7 @@ public class StageResultService {
     private final GuidebookRepository guidebookRepository;
     private final UserGuidebookRepository userGuidebookRepository;
     private final Clock clock;
+    private final ObjectMapper objectMapper;
 
     /**
      * 한 판의 결과를 반영한다 (하나의 트랜잭션).
@@ -67,7 +71,8 @@ public class StageResultService {
         boolean isNewBest = false;
         boolean firstClear = false;
         if (cleared) {
-            UserStage.ClearResult result = record.applyClear(request.moves(), request.hiddenFoundOrFalse(), now);
+            UserStage.ClearResult result = record.applyClear(request.moves(), request.hiddenFoundOrFalse(),
+                    isStable(stage, request), now);
             isNewBest = result.isNewBest();
             firstClear = result.firstClear();
         }
@@ -99,9 +104,24 @@ public class StageResultService {
     private RunResult thisRun(Stage stage, StageResultRequest request) {
         boolean clear = request.cleared();
         boolean tutorial = stage.getStageType() == StageType.TUTORIAL;
-        boolean par = clear && !tutorial && request.moves() <= stage.getParMoves();
+        boolean par = clear && !tutorial && isStable(stage, request);
         boolean hidden = clear && !tutorial && request.hiddenFoundOrFalse();
         return new RunResult(clear, par, hidden);
+    }
+
+    /** 별 2 조건: 불안정 체크포인트 수가 맵의 허용 개수(stars.maxUnstable, 기본 0) 이하 */
+    private boolean isStable(Stage stage, StageResultRequest request) {
+        return request.unstableCountOrZero() <= maxUnstable(stage.getMapData());
+    }
+
+    /** map_data의 stars.maxUnstable. 없거나 잘못된 값이면 0 */
+    int maxUnstable(String mapData) {
+        try {
+            JsonNode value = objectMapper.readTree(mapData).path("stars").path("maxUnstable");
+            return value.isIntegralNumber() && value.asInt() >= 0 ? value.asInt() : 0;
+        } catch (RuntimeException e) {
+            return 0;
+        }
     }
 
     /** 존재하는 도감 항목 중 처음 만난 것만 해금하고 돌려준다. 없는 ID는 무시한다. */
