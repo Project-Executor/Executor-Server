@@ -967,6 +967,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/mails` | 우편 발송 | 아래 참고 |
 | GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
+| GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt` |
 
 ### POST `/admin/mails`
 
