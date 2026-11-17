@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,6 +77,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> searchByNickname(@Param("keyword") String keyword,
                                    @Param("excludeUserId") Long excludeUserId,
                                    Pageable pageable);
+
+    /** 관리자: 여러 ID의 사용자를 계정(이메일·권한)과 함께 읽는다. 없는 ID는 빠진다 (ID 순) */
+    @Query("select u from User u join fetch u.account where u.userId in :ids order by u.userId")
+    List<User> findAllWithAccountByIdIn(@Param("ids") Collection<Long> ids);
 
     /**
      * 관리자 유저 검색. 계정(이메일·권한)을 함께 읽는다.
