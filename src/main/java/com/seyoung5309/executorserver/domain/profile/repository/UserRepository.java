@@ -1,5 +1,6 @@
 package com.seyoung5309.executorserver.domain.profile.repository;
 
+import com.seyoung5309.executorserver.domain.auth.entity.Role;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -75,4 +76,33 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> searchByNickname(@Param("keyword") String keyword,
                                    @Param("excludeUserId") Long excludeUserId,
                                    Pageable pageable);
+
+    /**
+     * 관리자 유저 검색. 계정(이메일·권한)을 함께 읽는다.
+     * keyword가 있으면 닉네임·이메일에 포함되거나 사용자 ID가 exactId와 같은 사용자. keyword는 LIKE 이스케이프한 값이어야 한다.
+     *
+     * @param keyword null이면 검색어 조건 없음
+     * @param exactId 검색어가 숫자일 때의 ID (아니면 null)
+     * @param role    null이면 전체
+     */
+    @Query(value = """
+            select u from User u join fetch u.account a
+            where (:keyword is null
+                   or u.nickname like concat('%', :keyword, '%') escape '\\'
+                   or a.email like concat('%', :keyword, '%') escape '\\'
+                   or u.userId = :exactId)
+              and (:role is null or a.role = :role)
+            """,
+            countQuery = """
+            select count(u) from User u join u.account a
+            where (:keyword is null
+                   or u.nickname like concat('%', :keyword, '%') escape '\\'
+                   or a.email like concat('%', :keyword, '%') escape '\\'
+                   or u.userId = :exactId)
+              and (:role is null or a.role = :role)
+            """)
+    Page<User> searchForAdmin(@Param("keyword") String keyword,
+                              @Param("exactId") Long exactId,
+                              @Param("role") Role role,
+                              Pageable pageable);
 }

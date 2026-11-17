@@ -150,7 +150,7 @@ public class ProfileService {
     }
 
     /** LIKE 검색에서 %, _, \ 를 글자 그대로 찾도록 이스케이프한다 */
-    static String escapeLike(String keyword) {
+    public static String escapeLike(String keyword) {
         return keyword
                 .replace("\\", "\\\\")
                 .replace("%", "\\%")
