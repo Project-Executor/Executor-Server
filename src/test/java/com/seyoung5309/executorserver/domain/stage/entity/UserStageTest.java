@@ -17,7 +17,7 @@ class UserStageTest {
     void 처음_클리어하면_첫_클리어이고_최고_기록이_생긴다() {
         UserStage record = notCleared(stage, 1);
 
-        UserStage.ClearResult result = record.applyClear(15, false, t1);
+        UserStage.ClearResult result = record.applyClear(15, false, false, t1);
 
         assertThat(result).isEqualTo(new UserStage.ClearResult(true, true));
         assertThat(record.getBestMoves()).isEqualTo(15);
@@ -27,9 +27,9 @@ class UserStageTest {
     @Test
     void 두_번째_클리어는_첫_클리어가_아니고_첫_클리어_시각도_그대로() {
         UserStage record = notCleared(stage, 1);
-        record.applyClear(15, false, t1);
+        record.applyClear(15, false, false, t1);
 
-        UserStage.ClearResult result = record.applyClear(12, false, t2);
+        UserStage.ClearResult result = record.applyClear(12, false, false, t2);
 
         assertThat(result.firstClear()).isFalse();
         assertThat(record.getFirstClearedAt()).isEqualTo(t1);
@@ -39,7 +39,7 @@ class UserStageTest {
     void 더_적은_턴이면_최고_기록_갱신() {
         UserStage record = cleared(stage, 15, false);
 
-        assertThat(record.applyClear(12, false, t2).isNewBest()).isTrue();
+        assertThat(record.applyClear(12, false, false, t2).isNewBest()).isTrue();
         assertThat(record.getBestMoves()).isEqualTo(12);
     }
 
@@ -47,8 +47,8 @@ class UserStageTest {
     void 같거나_많은_턴이면_최고_기록_유지() {
         UserStage record = cleared(stage, 15, false);
 
-        assertThat(record.applyClear(15, false, t2).isNewBest()).isFalse();
-        assertThat(record.applyClear(20, false, t2).isNewBest()).isFalse();
+        assertThat(record.applyClear(15, false, false, t2).isNewBest()).isFalse();
+        assertThat(record.applyClear(20, false, false, t2).isNewBest()).isFalse();
         assertThat(record.getBestMoves()).isEqualTo(15);
     }
 
@@ -56,8 +56,21 @@ class UserStageTest {
     void 숨겨진_요소는_한_번_찾으면_이후에_못_찾아도_유지된다() {
         UserStage record = cleared(stage, 15, true);
 
-        record.applyClear(14, false, t2);
+        record.applyClear(14, false, false, t2);
 
         assertThat(record.isHiddenFound()).isTrue();
+    }
+
+    @Test
+    void 별_2는_한_번_달성하면_유지된다() {
+        UserStage record = notCleared(officialStage(1L, operation(1L, "op", 1), 1), 1);
+        Instant t = Instant.parse("2026-11-18T00:00:00Z");
+
+        record.applyClear(30, false, false, t);
+        assertThat(record.isStableCleared()).isFalse();
+        record.applyClear(31, false, true, t);
+        assertThat(record.isStableCleared()).isTrue();
+        record.applyClear(25, false, false, t);
+        assertThat(record.isStableCleared()).as("나중에 불안정하게 깨도 유지").isTrue();
     }
 }

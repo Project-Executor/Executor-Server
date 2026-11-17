@@ -4,7 +4,7 @@ package com.seyoung5309.executorserver.domain.stage.repository;
  * 공식 스테이지 클리어·별 집계.
  *
  * @param clearedCount 클리어한 공식 스테이지 수 (= 별 1 개수)
- * @param parCount     기준 턴 달성 수 (별 2)
+ * @param parCount     별 2 달성 수 (불안정 체크포인트 허용 개수 이하로 클리어)
  * @param hiddenCount  숨겨진 요소 달성 수 (별 3)
  */
 public record StarSummary(long clearedCount, long parCount, long hiddenCount) {

@@ -414,20 +414,30 @@ Redis에 저장된 Refresh Token을 지운다.
   "cleared": true,
   "moves": 18,
   "hiddenFound": true,
-  "encounteredGuidebookIds": [3, 7]
+  "encounteredGuidebookIds": [3, 7],
+  "unstableCount": 0,
+  "rewinds": 2
 }
 ```
 
 | 필드 | 규칙 |
 | --- | --- |
 | cleared | 필수 |
-| moves | 1~9999. `cleared`가 `true`일 때만 기록에 반영한다 |
+| moves | 1~9999. **구간 최고 기록의 합** ([map-data.md 3.3](map-data.md#33-체크포인트-checkpoint)). 체크포인트가 없는 맵은 쓴 턴 수와 같다. `cleared`가 `true`일 때만 기록에 반영한다 |
 | hiddenFound | 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
 | encounteredGuidebookIds | 이번 판에서 만난 이상 개체의 도감 ID. 클리어하지 못해도 해금한다 |
+| unstableCount | 0~999, 기본값 `0`. 불안정 체크포인트(출구 포함) 수. 별 2 판정에 쓴다 |
+| rewinds | 0 이상, 선택. 워프한 횟수 (통계용, 지금은 저장하지 않는다) |
+
+**별 판정** ([map-data.md 3.4](map-data.md#34-별-조건))
+- 별 1 `clear`: 클리어
+- 별 2 `par`: `unstableCount <= map_data.stars.maxUnstable` (없거나 잘못된 값이면 0). 한 번 달성하면 `user_stages.is_stable_cleared`에 남는다. 필드 이름 `par`는 호환을 위해 그대로 둔다 (예전 기준은 "최소 기록 <= parMoves")
+- 별 3 `hidden`: `hiddenFound`
+- 튜토리얼은 별 1만 있다
 
 **처리 순서** (하나의 트랜잭션)
 1. `user_stages` 행이 없으면 만들고, `play_count`를 1 늘린다.
-2. 클리어했다면 `best_moves = LEAST(기존 값, moves)`로 갱신하고 `is_hidden_found`를 누적한다.
+2. 클리어했다면 `best_moves = LEAST(기존 값, moves)`로 갱신하고 `is_hidden_found`, `is_stable_cleared`를 누적한다.
 3. 클리어했다면 `first_cleared_at IS NULL` 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 `reward_coin`을 지급한다.
 4. `encounteredGuidebookIds` 중 아직 없는 항목을 `user_guidebooks`에 추가한다.
 
