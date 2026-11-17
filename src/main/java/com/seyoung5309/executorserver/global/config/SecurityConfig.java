@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -51,6 +52,8 @@ public class SecurityConfig {
                         // /api/auth/** 중 로그아웃만은 로그인이 필요하다 (위에서부터 먼저 맞는 규칙이 적용됨)
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        // 공지는 로그인 전 시작 화면에서도 보여 줄 수 있게 조회만 공개
+                        .requestMatchers(HttpMethod.GET, "/api/notices", "/api/notices/*").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // 401(인증 없음) / 403(권한 없음)을 공통 JSON 형식으로 응답

@@ -132,7 +132,9 @@
 | 신고 | GET | `/report-categories` | 신고 카테고리 | REPORT-01 |
 |  | POST | `/reports` | 신고하기 | REPORT-02 |
 |  | GET | `/reports/me` | 내 신고 목록 | REPORT-03 |
-| 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04 |
+| 공지 | GET | `/notices` 🔓 | 공지 목록 | NOTICE-01 |
+|  | GET | `/notices/{noticeId}` 🔓 | 공지 상세 | NOTICE-02 |
+| 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04, NOTICE-03 |
 
 ---
 
@@ -942,6 +944,35 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
+## 8-1. 공지사항 🔓
+
+로그인 없이 볼 수 있다 (시작 화면에서도 보여 줄 수 있게). 지금 게시 중인 공지만 나온다: 숨기지 않았고(`isVisible`), 게시 시각(`publishedAt`)이 지났고, 종료 시각(`endsAt`)이 없거나 아직 안 된 공지. `category`는 `NOTICE`(공지)·`UPDATE`(업데이트)·`EVENT`(이벤트)·`MAINTENANCE`(점검).
+
+### GET `/notices?page=0&size=20` 🔓
+
+상단 고정(`isPinned`) 먼저, 그다음 게시 시각 최신순. size 1~50(기본 20). 내용은 상세에서 읽는다.
+
+**Response** `200 OK` (PageResponse)
+```json
+{
+  "content": [
+    { "noticeId": 3, "category": "MAINTENANCE", "title": "11/20 점검 안내", "isPinned": true, "publishedAt": "2026-11-17T03:00:00Z" }
+  ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
+}
+```
+
+### GET `/notices/{noticeId}` 🔓
+
+**Response** `200 OK`
+```json
+{ "noticeId": 3, "category": "MAINTENANCE", "title": "11/20 점검 안내", "content": "...", "isPinned": true, "publishedAt": "2026-11-17T03:00:00Z", "updatedAt": "2026-11-17T03:10:00Z" }
+```
+
+**Error**: `404 NOT_FOUND` (없거나 숨김·예약·종료된 공지)
+
+---
+
 ## 9. 관리자 API 🛡️
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
@@ -975,6 +1006,11 @@ Redis에 저장된 Refresh Token을 지운다.
 | PATCH | `/admin/users/{id}/role` | 권한 변경 | `{ "role": "ADMIN" }`. 자기 자신은 `400`. 새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용. 응답은 목록 항목과 같다 |
 | PUT | `/admin/users/{id}/suspension` | 계정 정지 | `{ "until": "2026-11-20T09:00:00Z", "reason": "욕설" }`. `until`이 null이면 영구 정지(`9999-12-31T23:59:59Z`로 저장), 값이 있으면 지금보다 뒤. `reason` 필수(200자 이하). 이미 정지 중이면 새 값으로 바꾼다. 자기 자신은 `400`. 로그인·재발급이 막히고 저장된 Refresh Token을 지운다(이미 받은 Access Token은 최대 30분 유효). 응답은 목록 항목과 같다 |
 | DELETE | `/admin/users/{id}/suspension` | 정지 해제 | 정지 중이 아니어도 `200`. 응답은 목록 항목과 같다 |
+| GET | `/admin/notices?page=0` | 공지 전체 목록 | 최근 작성순(size 1~50, 기본 20). 숨김·예약·종료 공지 포함. 항목: `noticeId`, `category`, `title`, `content`, `isPinned`, `isVisible`, `publishedAt`, `endsAt`, `isShown`(지금 게임에 보이는지), `createdAt`, `updatedAt` |
+| GET | `/admin/notices/{id}` | 공지 한 건 | 항목은 목록과 같다 |
+| POST | `/admin/notices` | 공지 등록 (`201`) | `category`(필수), `title`(1~100자), `content`(1~5000자), `isPinned`(기본 false), `isVisible`(기본 true), `publishedAt`(생략하면 지금, 미래면 예약), `endsAt`(null이면 계속, 값이 있으면 `publishedAt`보다 뒤, 아니면 `400`) |
+| PUT | `/admin/notices/{id}` | 공지 수정 | 등록과 같은 값을 모두 보낸다. `publishedAt`을 생략하면 기존 값 유지 |
+| DELETE | `/admin/notices/{id}` | 공지 삭제 (`204`) | 되돌릴 수 없다. 잠시 내리려면 `isVisible: false`로 수정 |
 
 ### POST `/admin/mails`
 
