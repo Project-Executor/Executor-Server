@@ -969,6 +969,9 @@ Redis에 저장된 Refresh Token을 지운다.
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 | GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt` |
 | GET | `/admin/users/by-ids?ids=1,2,3` | ID로 여러 명 조회 | 한 번에 100개까지(중복은 한 번만, 비었거나 넘으면 `400`). ID 순. 없는 ID는 결과에서 빠진다. 항목은 `/admin/users`와 같다 |
+| GET | `/admin/users/{id}` | 유저 상세 | 목록 항목 + `comment`, `equippedSkinId`, `equippedThemeId`, `clearedStageCount`·`totalStars`(공식 스테이지), `items[] {itemId, name, itemType, quantity, acquiredAt}`(수량 0인 힌트 제외). 없으면 `404` |
+| PATCH | `/admin/users/{id}/coin` | 코인 조정 | `{ "amount": -100 }`. 더할 값(음수면 뺌, 0 불가, -1,000,000~1,000,000). 빼서 0 미만이면 `409 NOT_ENOUGH_COIN`(보유 코인을 메시지에 표시). 응답 `{ userId, coin }`(조정 후) |
+| PATCH | `/admin/users/{id}/role` | 권한 변경 | `{ "role": "ADMIN" }`. 자기 자신은 `400`. 새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용. 응답은 목록 항목과 같다 |
 
 ### POST `/admin/mails`
 

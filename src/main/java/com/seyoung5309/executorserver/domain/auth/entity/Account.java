@@ -39,4 +39,9 @@ public class Account {
         this.password = encodedPassword;
         this.role = Role.USER;
     }
+
+    /** 관리자 화면에서 권한을 바꾼다. 새 권한은 다음 토큰 재발급(최대 Access Token 유효기간 30분) 때부터 적용된다 */
+    public void changeRole(Role role) {
+        this.role = role;
+    }
 }

@@ -1,10 +1,16 @@
 package com.seyoung5309.executorserver.domain.admin.controller;
 
+import com.seyoung5309.executorserver.domain.admin.dto.AdminCoinRequest;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminCoinResponse;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminRoleRequest;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminUserDetailResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminUserResponse;
 import com.seyoung5309.executorserver.domain.admin.service.AdminUserService;
 import com.seyoung5309.executorserver.global.response.PageResponse;
+import com.seyoung5309.executorserver.global.security.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -43,5 +49,29 @@ public class AdminUserController {
     @GetMapping("/by-ids")
     public List<AdminUserResponse> lookup(@RequestParam(required = false) List<Long> ids) {
         return adminUserService.lookup(ids);
+    }
+
+    @Operation(summary = "유저 상세",
+            description = "계정·코인·장착 아이템·공식 스테이지 기록(클리어 수, 별 합계)·보유 아이템.")
+    @GetMapping("/{userId}")
+    public AdminUserDetailResponse getDetail(@PathVariable Long userId) {
+        return adminUserService.getDetail(userId);
+    }
+
+    @Operation(summary = "코인 조정",
+            description = "amount만큼 더한다(음수면 뺀다, 0 불가, -1,000,000~1,000,000). 빼서 0 미만이 되면 409 NOT_ENOUGH_COIN. "
+                    + "응답은 조정한 뒤의 코인.")
+    @PatchMapping("/{userId}/coin")
+    public AdminCoinResponse adjustCoin(@PathVariable Long userId, @Valid @RequestBody AdminCoinRequest request) {
+        return adminUserService.adjustCoin(userId, request.amount());
+    }
+
+    @Operation(summary = "권한 변경",
+            description = "role은 USER 또는 ADMIN. 자기 자신은 바꿀 수 없다(400). "
+                    + "새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용된다.")
+    @PatchMapping("/{userId}/role")
+    public AdminUserResponse changeRole(@LoginUser Long adminId, @PathVariable Long userId,
+                                        @Valid @RequestBody AdminRoleRequest request) {
+        return adminUserService.changeRole(adminId, userId, request.role());
     }
 }
