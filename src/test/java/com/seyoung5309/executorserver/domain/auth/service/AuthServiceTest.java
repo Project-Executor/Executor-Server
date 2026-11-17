@@ -38,6 +38,8 @@ class AuthServiceTest {
 
     private static final String SECRET = "dGVzdC1vbmx5LWp3dC1zZWNyZXQta2V5LWZvci1leGVjdXRvci1zZXJ2ZXItdGVzdHM=";
 
+    private static final java.time.Instant NOW = java.time.Instant.parse("2026-11-17T03:00:00Z");
+
     private AccountRepository accountRepository;
     private UserRepository userRepository;
     private RefreshTokenStore refreshTokenStore;
@@ -50,7 +52,8 @@ class AuthServiceTest {
         accountRepository = mock(AccountRepository.class);
         userRepository = mock(UserRepository.class);
         refreshTokenStore = mock(RefreshTokenStore.class);
-        authService = new AuthService(accountRepository, userRepository, passwordEncoder, jwtProvider, refreshTokenStore);
+        authService = new AuthService(accountRepository, userRepository, passwordEncoder, jwtProvider, refreshTokenStore,
+                java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
 
         // 저장하면 DB가 ID를 채워주는 것처럼 흉내낸다
         when(accountRepository.saveAndFlush(any(Account.class))).thenAnswer(invocation -> {
@@ -151,7 +154,49 @@ class AuthServiceTest {
                 ErrorCode.INVALID_CREDENTIALS);
     }
 
+    @Test
+    void 정지된_계정은_비밀번호가_맞으면_ACCOUNT_SUSPENDED와_기한과_사유를_알려_준다() {
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        user.suspend(java.time.Instant.parse("2026-11-20T09:00:00Z"), "욕설");
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("executor@example.com", "password123!")))
+                .isInstanceOfSatisfying(BusinessException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ACCOUNT_SUSPENDED);
+                    assertThat(e.getMessage()).isEqualTo("정지된 계정입니다. (2026-11-20 18:00까지, 한국 시간) 사유: 욕설");
+                });
+        verify(refreshTokenStore, never()).save(any(), any(), any());
+    }
+
+    @Test
+    void 정지된_계정이라도_비밀번호가_틀리면_INVALID_CREDENTIALS() {
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        user.suspend(Account.PERMANENT, "부정 행위");
+
+        assertErrorCode(() -> authService.login(new LoginRequest("executor@example.com", "wrong-password")),
+                ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    void 영구_정지와_기한이_지난_정지() {
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        user.suspend(Account.PERMANENT, null);
+        assertThat(AuthService.suspendedMessage(user)).isEqualTo("정지된 계정입니다. (영구 정지)");
+
+        user.suspend(NOW, "기한 지남");
+        when(userRepository.findById(5L)).thenReturn(Optional.of(new User(user, "debugger")));
+        assertThat(authService.login(new LoginRequest("executor@example.com", "password123!")).accessToken()).isNotBlank();
+    }
+
     // ---------- 재발급 ----------
+
+    @Test
+    void 정지된_계정은_재발급도_ACCOUNT_SUSPENDED() {
+        Account user = existingUser(5L, "executor@example.com", "password123!");
+        user.suspend(Account.PERMANENT, "부정 행위");
+
+        assertErrorCode(() -> authService.reissue(jwtProvider.createRefreshToken(5L)), ErrorCode.ACCOUNT_SUSPENDED);
+        verify(refreshTokenStore, never()).rotate(anyLong(), any(), any(), any());
+    }
 
     @Test
     void 재발급하면_저장된_Refresh_Token을_새_것으로_바꾸고_두_토큰을_돌려준다() {

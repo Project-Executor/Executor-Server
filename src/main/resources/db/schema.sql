@@ -53,6 +53,8 @@ CREATE TABLE accounts (
     password    VARCHAR(255)    NOT NULL                COMMENT 'BCrypt 해시',
     role        ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER' COMMENT '권한',
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
+    suspended_until DATETIME    NULL                    COMMENT '정지 기한 (UTC). NULL이면 정지 아님, 9999-12-31 23:59:59면 영구 정지',
+    suspend_reason  VARCHAR(200) NULL                   COMMENT '정지 사유 (로그인 거부 메시지에 표시)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_accounts_email (email)
@@ -392,7 +394,29 @@ CREATE TABLE reports (
 
 
 -- =====================================================================
--- 7. 기초 데이터
+-- 7. 공지사항
+-- =====================================================================
+
+-- 공지 (관리자가 작성, 게임에서 목록·상세 조회)
+CREATE TABLE notices (
+    id            BIGINT         NOT NULL AUTO_INCREMENT COMMENT '공지 ID',
+    category      ENUM('NOTICE', 'UPDATE', 'EVENT', 'MAINTENANCE') NOT NULL DEFAULT 'NOTICE' COMMENT '분류 (공지·업데이트·이벤트·점검)',
+    title         VARCHAR(100)   NOT NULL                COMMENT '제목',
+    content       TEXT           NOT NULL                COMMENT '내용 (5000자 이하)',
+    is_pinned     BOOLEAN        NOT NULL DEFAULT FALSE  COMMENT '상단 고정',
+    is_visible    BOOLEAN        NOT NULL DEFAULT TRUE   COMMENT 'FALSE면 숨김 (게임에 안 보임)',
+    published_at  DATETIME       NOT NULL                COMMENT '게시 시각 (미래면 예약, 그때부터 보임)',
+    ends_at       DATETIME           NULL                COMMENT '게시 종료 시각 (NULL이면 계속)',
+    created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성일',
+    updated_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
+
+    PRIMARY KEY (id),
+    KEY idx_notices_list (is_visible, is_pinned, published_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '공지사항';
+
+
+-- =====================================================================
+-- 8. 기초 데이터
 -- =====================================================================
 
 -- INSERT IGNORE: 이미 있으면 건너뛴다 (UNIQUE name)

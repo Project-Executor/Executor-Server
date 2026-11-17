@@ -2,8 +2,12 @@ package com.seyoung5309.executorserver.domain.admin.service;
 
 import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
+import com.seyoung5309.executorserver.domain.auth.service.RefreshTokenStore;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +28,21 @@ import static org.mockito.Mockito.*;
 class AdminUserServiceTest {
 
     private UserRepository userRepository;
+    private UserItemRepository userItemRepository;
+    private UserStageRepository userStageRepository;
+    private RefreshTokenStore refreshTokenStore;
     private AdminUserService service;
+
+    private static final java.time.Instant NOW = java.time.Instant.parse("2026-11-17T03:00:00Z");
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
-        service = new AdminUserService(userRepository);
+        userItemRepository = mock(UserItemRepository.class);
+        userStageRepository = mock(UserStageRepository.class);
+        refreshTokenStore = mock(RefreshTokenStore.class);
+        service = new AdminUserService(userRepository, userItemRepository, userStageRepository, refreshTokenStore,
+                java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
         when(userRepository.searchForAdmin(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
     }
 
@@ -113,5 +126,154 @@ class AdminUserServiceTest {
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
         }
         verify(userRepository, never()).findAllWithAccountByIdIn(any());
+    }
+
+    // ---------- 상세 ----------
+
+    @Test
+    void 상세는_별_합계와_보유_아이템을_담는다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+        when(userStageRepository.summarizeOfficialStars(7L)).thenReturn(new StarSummary(3, 2, 1));
+        when(userItemRepository.findMyItems(7L, null)).thenReturn(List.of());
+
+        var detail = service.getDetail(7L);
+
+        assertThat(detail.email()).isEqualTo("user7@example.com");
+        assertThat(detail.clearedStageCount()).isEqualTo(3);
+        assertThat(detail.totalStars()).isEqualTo(6);
+        assertThat(detail.items()).isEmpty();
+    }
+
+    @Test
+    void 없는_사용자_상세는_NOT_FOUND() {
+        when(userRepository.findWithUserById(9L)).thenReturn(java.util.Optional.empty());
+        assertErrorCode(() -> service.getDetail(9L), ErrorCode.NOT_FOUND);
+    }
+
+    // ---------- 코인 ----------
+
+    @Test
+    void 코인을_더하면_조정한_뒤의_코인을_돌려준다() {
+        when(userRepository.existsById(7L)).thenReturn(true);
+        when(userRepository.findCoinByUserId(7L)).thenReturn(java.util.Optional.of(150));
+
+        var res = service.adjustCoin(7L, 100);
+
+        verify(userRepository).addCoin(7L, 100);
+        verify(userRepository, never()).spendCoin(anyLong(), anyInt());
+        assertThat(res.coin()).isEqualTo(150);
+    }
+
+    @Test
+    void 코인을_빼면_조건부로_차감하고_모자라면_NOT_ENOUGH_COIN() {
+        when(userRepository.existsById(7L)).thenReturn(true);
+        when(userRepository.spendCoin(7L, 30)).thenReturn(1);
+        when(userRepository.findCoinByUserId(7L)).thenReturn(java.util.Optional.of(20));
+        assertThat(service.adjustCoin(7L, -30).coin()).isEqualTo(20);
+
+        when(userRepository.spendCoin(7L, 500)).thenReturn(0);
+        assertThatThrownBy(() -> service.adjustCoin(7L, -500))
+                .isInstanceOfSatisfying(BusinessException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NOT_ENOUGH_COIN);
+                    assertThat(e.getMessage()).contains("보유 20");
+                });
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
+    }
+
+    @Test
+    void 코인_0이나_없는_사용자는_바꾸지_않는다() {
+        assertErrorCode(() -> service.adjustCoin(7L, 0), ErrorCode.INVALID_INPUT);
+        when(userRepository.existsById(9L)).thenReturn(false);
+        assertErrorCode(() -> service.adjustCoin(9L, 10), ErrorCode.NOT_FOUND);
+        verify(userRepository, never()).addCoin(anyLong(), anyInt());
+        verify(userRepository, never()).spendCoin(anyLong(), anyInt());
+    }
+
+    // ---------- 권한 ----------
+
+    @Test
+    void 권한을_바꾼다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+
+        var res = service.changeRole(1L, 7L, Role.ADMIN);
+
+        assertThat(res.role()).isEqualTo(Role.ADMIN);
+        assertThat(profile.getAccount().getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void 자기_권한은_바꿀_수_없다() {
+        assertErrorCode(() -> service.changeRole(1L, 1L, Role.USER), ErrorCode.INVALID_INPUT);
+        verify(userRepository, never()).findWithUserById(any());
+    }
+
+    // ---------- 정지 ----------
+
+    @Test
+    void 기한부_정지는_기한과_사유를_저장하고_Refresh_Token을_지운다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+        java.time.Instant until = NOW.plus(java.time.Duration.ofDays(3));
+
+        var res = service.suspend(1L, 7L, until, "  욕설  ");
+
+        assertThat(res.suspendedUntil()).isEqualTo(until);
+        assertThat(res.suspendReason()).isEqualTo("욕설");
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isTrue();
+        verify(refreshTokenStore).delete(7L);
+    }
+
+    @Test
+    void until이_없으면_영구_정지() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+
+        assertThat(service.suspend(1L, 7L, null, "부정 행위").suspendedUntil()).isEqualTo(Account.PERMANENT);
+    }
+
+    @Test
+    void Redis_오류가_나도_정지는_된다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+        doThrow(new RuntimeException("redis down")).when(refreshTokenStore).delete(7L);
+
+        service.suspend(1L, 7L, null, "부정 행위");
+
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isTrue();
+    }
+
+    @Test
+    void 자기_자신이나_지난_기한으로는_정지할_수_없다() {
+        assertErrorCode(() -> service.suspend(1L, 1L, null, "x"), ErrorCode.INVALID_INPUT);
+        assertErrorCode(() -> service.suspend(1L, 7L, NOW, "x"), ErrorCode.INVALID_INPUT);
+        verify(userRepository, never()).findWithUserById(any());
+    }
+
+    @Test
+    void 정지를_풀면_기한과_사유가_지워진다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        profile.getAccount().suspend(Account.PERMANENT, "x");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+
+        var res = service.unsuspend(7L);
+
+        assertThat(res.suspendedUntil()).isNull();
+        assertThat(res.suspendReason()).isNull();
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isFalse();
+    }
+
+    private static User profile(Long id, Role role, String nickname) {
+        Account account = user(id);
+        ReflectionTestUtils.setField(account, "role", role);
+        User profile = new User(account, nickname);
+        ReflectionTestUtils.setField(profile, "userId", id);
+        return profile;
+    }
+
+    private static void assertErrorCode(org.assertj.core.api.ThrowableAssert.ThrowingCallable call, ErrorCode code) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(BusinessException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(code));
     }
 }

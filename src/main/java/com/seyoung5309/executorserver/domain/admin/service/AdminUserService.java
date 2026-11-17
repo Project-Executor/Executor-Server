@@ -1,18 +1,29 @@
 package com.seyoung5309.executorserver.domain.admin.service;
 
+import com.seyoung5309.executorserver.domain.admin.dto.AdminCoinResponse;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminUserDetailResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminUserResponse;
+import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
+import com.seyoung5309.executorserver.domain.auth.service.RefreshTokenStore;
+import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
+import com.seyoung5309.executorserver.domain.profile.entity.User;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
+import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.domain.profile.service.ProfileService;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -20,7 +31,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** 관리자 유저 조회 */
+/** 관리자 유저 조회·관리 (상세, 코인 조정, 권한 변경, 정지) */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -33,6 +45,117 @@ public class AdminUserService {
     public static final int LOOKUP_MAX = 100;
 
     private final UserRepository userRepository;
+    private final UserItemRepository userItemRepository;
+    private final UserStageRepository userStageRepository;
+    private final RefreshTokenStore refreshTokenStore;
+    private final Clock clock;
+
+    /**
+     * 유저 상세 (계정·코인·장착·공식 스테이지 기록·보유 아이템).
+     *
+     * @throws BusinessException NOT_FOUND
+     */
+    public AdminUserDetailResponse getDetail(Long userId) {
+        User user = findUser(userId);
+        StarSummary stars = userStageRepository.summarizeOfficialStars(userId);
+        List<AdminUserDetailResponse.OwnedItem> items = userItemRepository.findMyItems(userId, null).stream()
+                .map(AdminUserDetailResponse.OwnedItem::from)
+                .toList();
+        Account account = user.getAccount();
+        return new AdminUserDetailResponse(
+                user.getUserId(), account.getEmail(), user.getNickname(), user.getComment(), account.getRole(),
+                user.getCoin(), account.getCreatedAt(), account.getSuspendedUntil(), account.getSuspendReason(),
+                user.getEquippedSkinId(), user.getEquippedThemeId(),
+                stars.clearedCount(), stars.totalStars(), items);
+    }
+
+    /**
+     * 코인을 더하거나 뺀다. DB에서 바로 계산해서 동시에 코인을 쓰거나 받아도 값이 유실되지 않는다.
+     *
+     * @param amount 0이 아닌 값. 음수면 뺀다
+     * @throws BusinessException NOT_FOUND, INVALID_INPUT(0), NOT_ENOUGH_COIN(빼면 0 미만)
+     */
+    @Transactional
+    public AdminCoinResponse adjustCoin(Long userId, int amount) {
+        if (amount == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "amount는 0이 아니어야 합니다.");
+        }
+        if (!userRepository.existsById(userId)) {
+            throw notFound();
+        }
+        if (amount > 0) {
+            userRepository.addCoin(userId, amount);
+        } else if (userRepository.spendCoin(userId, -amount) == 0) {
+            int coin = userRepository.findCoinByUserId(userId).orElse(0);
+            throw new BusinessException(ErrorCode.NOT_ENOUGH_COIN,
+                    "코인이 부족합니다. (보유 " + coin + ", 빼려는 코인 " + (-amount) + ")");
+        }
+        return new AdminCoinResponse(userId, userRepository.findCoinByUserId(userId).orElseThrow(this::notFound));
+    }
+
+    /**
+     * 권한을 바꾼다. 관리자 자신의 권한은 바꿀 수 없다 (실수로 관리자 웹에 못 들어오게 되는 것을 막는다).
+     * 새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용된다.
+     *
+     * @throws BusinessException NOT_FOUND, INVALID_INPUT(자기 자신)
+     */
+    @Transactional
+    public AdminUserResponse changeRole(Long adminId, Long userId, Role role) {
+        if (Objects.equals(adminId, userId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "자기 자신의 권한은 바꿀 수 없습니다.");
+        }
+        User user = findUser(userId);
+        user.getAccount().changeRole(role);
+        return AdminUserResponse.from(user);
+    }
+
+    /**
+     * 계정을 정지한다. 이미 정지 중이면 기한·사유를 새 값으로 바꾼다. 관리자 자신은 정지할 수 없다.
+     * 로그인·토큰 재발급이 막히고, 저장된 Refresh Token을 지워 다음 재발급(최대 30분 뒤)부터 쓸 수 없게 한다.
+     *
+     * @param until null이면 영구 정지
+     * @throws BusinessException NOT_FOUND, INVALID_INPUT(자기 자신, 지난 기한)
+     */
+    @Transactional
+    public AdminUserResponse suspend(Long adminId, Long userId, Instant until, String reason) {
+        if (Objects.equals(adminId, userId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "자기 자신은 정지할 수 없습니다.");
+        }
+        Instant now = clock.instant();
+        if (until != null && !until.isAfter(now)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "until은 지금보다 뒤여야 합니다.");
+        }
+        Instant deadline = until == null || until.isAfter(Account.PERMANENT) ? Account.PERMANENT : until;
+        User user = findUser(userId);
+        user.getAccount().suspend(deadline, reason.strip());
+        revokeRefreshToken(userId);
+        return AdminUserResponse.from(user);
+    }
+
+    /** 정지를 푼다. 정지 중이 아니어도 그대로 성공한다. @throws BusinessException NOT_FOUND */
+    @Transactional
+    public AdminUserResponse unsuspend(Long userId) {
+        User user = findUser(userId);
+        user.getAccount().unsuspend();
+        return AdminUserResponse.from(user);
+    }
+
+    /** Redis 오류로 정지가 실패하지 않게 한다. 지우지 못해도 재발급할 때 정지 여부를 다시 확인하므로 막힌다 */
+    private void revokeRefreshToken(Long userId) {
+        try {
+            refreshTokenStore.delete(userId);
+        } catch (RuntimeException e) {
+            log.warn("정지한 사용자의 Refresh Token을 지우지 못했습니다: userId={}", userId, e);
+        }
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findWithUserById(userId).orElseThrow(this::notFound);
+    }
+
+    private BusinessException notFound() {
+        return new BusinessException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다.");
+    }
 
     /**
      * 유저 목록 (최근 가입순). 나 자신(관리자)도 포함한다.

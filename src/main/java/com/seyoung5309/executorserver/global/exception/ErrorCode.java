@@ -22,6 +22,7 @@ public enum ErrorCode {
 
     // 403
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+    ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "정지된 계정입니다."),
     STAGE_LOCKED(HttpStatus.FORBIDDEN, "아직 해금되지 않은 스테이지입니다."),
 
     // 404
