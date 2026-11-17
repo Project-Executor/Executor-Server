@@ -991,6 +991,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보내고, `hints`가 있으면 배열이어야 한다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
+| GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment` |
 | POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment` |
 | PUT | `/admin/guidebooks/{id}` | 도감 수정 | 등록과 같음 |
 | DELETE | `/admin/guidebooks/{id}` | 도감 삭제 | 사용자의 해금 기록도 함께 삭제 |

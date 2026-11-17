@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "관리자 - 도감", description = "ADMIN 권한 필요")
 @RestController
 @RequestMapping("/api/admin/guidebooks")
@@ -17,6 +19,12 @@ import org.springframework.web.bind.annotation.*;
 public class AdminGuidebookController {
 
     private final AdminGuidebookService adminGuidebookService;
+
+    @Operation(summary = "도감 전체 목록", description = "ID 순. 해금 여부와 상관없이 내용(comment)까지 모두 나온다.")
+    @GetMapping
+    public List<AdminGuidebookResponse> getAll() {
+        return adminGuidebookService.getAll();
+    }
 
     @Operation(summary = "도감 등록", description = "stageId는 선택. 이름은 겹칠 수 없다(409 DUPLICATE_VALUE).")
     @PostMapping

@@ -13,6 +13,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -22,6 +24,12 @@ public class AdminGuidebookService {
 
     private final GuidebookRepository guidebookRepository;
     private final StageRepository stageRepository;
+
+    /** 도감 전체 (ID 순). 사용자 해금 여부와 상관없이 내용까지 모두 */
+    @Transactional(readOnly = true)
+    public List<AdminGuidebookResponse> getAll() {
+        return guidebookRepository.findAllByOrderByIdAsc().stream().map(AdminGuidebookResponse::from).toList();
+    }
 
     /** @throws BusinessException NOT_FOUND(스테이지), DUPLICATE_VALUE(이름 중복) */
     public AdminGuidebookResponse create(AdminGuidebookRequest request) {

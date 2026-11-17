@@ -207,6 +207,21 @@ class AdminServiceTest {
         }
 
         @Test
+        void 전체_목록은_해금과_상관없이_내용까지_ID_순으로_돌려준다() {
+            Guidebook first = new Guidebook(null, GuidebookCategory.BUG, "널 포인터", null, "설명");
+            org.springframework.test.util.ReflectionTestUtils.setField(first, "id", 1L);
+            when(guidebookRepository.findAllByOrderByIdAsc()).thenReturn(java.util.List.of(first));
+
+            var all = service.getAll();
+
+            assertThat(all).singleElement().satisfies(g -> {
+                assertThat(g.guidebookId()).isEqualTo(1L);
+                assertThat(g.stageId()).isNull();
+                assertThat(g.comment()).isEqualTo("설명");
+            });
+        }
+
+        @Test
         void 처음_등장_스테이지_없이_등록할_수_있다() {
             AdminGuidebookResponse response = service.create(
                     new AdminGuidebookRequest(null, GuidebookCategory.TERM, " API ", "", "설명"));
