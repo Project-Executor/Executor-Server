@@ -2,6 +2,7 @@ package com.seyoung5309.executorserver.domain.admin.service;
 
 import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.auth.entity.Role;
+import com.seyoung5309.executorserver.domain.auth.service.RefreshTokenStore;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
@@ -29,14 +30,19 @@ class AdminUserServiceTest {
     private UserRepository userRepository;
     private UserItemRepository userItemRepository;
     private UserStageRepository userStageRepository;
+    private RefreshTokenStore refreshTokenStore;
     private AdminUserService service;
+
+    private static final java.time.Instant NOW = java.time.Instant.parse("2026-11-17T03:00:00Z");
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         userItemRepository = mock(UserItemRepository.class);
         userStageRepository = mock(UserStageRepository.class);
-        service = new AdminUserService(userRepository, userItemRepository, userStageRepository);
+        refreshTokenStore = mock(RefreshTokenStore.class);
+        service = new AdminUserService(userRepository, userItemRepository, userStageRepository, refreshTokenStore,
+                java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
         when(userRepository.searchForAdmin(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
     }
 
@@ -201,6 +207,61 @@ class AdminUserServiceTest {
     void 자기_권한은_바꿀_수_없다() {
         assertErrorCode(() -> service.changeRole(1L, 1L, Role.USER), ErrorCode.INVALID_INPUT);
         verify(userRepository, never()).findWithUserById(any());
+    }
+
+    // ---------- 정지 ----------
+
+    @Test
+    void 기한부_정지는_기한과_사유를_저장하고_Refresh_Token을_지운다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+        java.time.Instant until = NOW.plus(java.time.Duration.ofDays(3));
+
+        var res = service.suspend(1L, 7L, until, "  욕설  ");
+
+        assertThat(res.suspendedUntil()).isEqualTo(until);
+        assertThat(res.suspendReason()).isEqualTo("욕설");
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isTrue();
+        verify(refreshTokenStore).delete(7L);
+    }
+
+    @Test
+    void until이_없으면_영구_정지() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+
+        assertThat(service.suspend(1L, 7L, null, "부정 행위").suspendedUntil()).isEqualTo(Account.PERMANENT);
+    }
+
+    @Test
+    void Redis_오류가_나도_정지는_된다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+        doThrow(new RuntimeException("redis down")).when(refreshTokenStore).delete(7L);
+
+        service.suspend(1L, 7L, null, "부정 행위");
+
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isTrue();
+    }
+
+    @Test
+    void 자기_자신이나_지난_기한으로는_정지할_수_없다() {
+        assertErrorCode(() -> service.suspend(1L, 1L, null, "x"), ErrorCode.INVALID_INPUT);
+        assertErrorCode(() -> service.suspend(1L, 7L, NOW, "x"), ErrorCode.INVALID_INPUT);
+        verify(userRepository, never()).findWithUserById(any());
+    }
+
+    @Test
+    void 정지를_풀면_기한과_사유가_지워진다() {
+        User profile = profile(7L, Role.USER, "집행자");
+        profile.getAccount().suspend(Account.PERMANENT, "x");
+        when(userRepository.findWithUserById(7L)).thenReturn(java.util.Optional.of(profile));
+
+        var res = service.unsuspend(7L);
+
+        assertThat(res.suspendedUntil()).isNull();
+        assertThat(res.suspendReason()).isNull();
+        assertThat(profile.getAccount().isSuspendedAt(NOW)).isFalse();
     }
 
     private static User profile(Long id, Role role, String nickname) {

@@ -16,6 +16,7 @@ import java.util.List;
  * @param clearedStageCount 클리어한 공식 스테이지 수
  * @param totalStars        공식 스테이지에서 얻은 별 합계
  * @param items             보유 아이템 (수량 0인 힌트는 빠짐, 아이템 ID 순)
+ * @param suspendedUntil    정지 기한. null이면 정지 아님, 9999-12-31T23:59:59Z면 영구. 지난 시각이면 이미 풀린 것
  */
 public record AdminUserDetailResponse(
         Long userId,
@@ -25,6 +26,8 @@ public record AdminUserDetailResponse(
         Role role,
         int coin,
         Instant createdAt,
+        Instant suspendedUntil,
+        String suspendReason,
         Long equippedSkinId,
         Long equippedThemeId,
         long clearedStageCount,

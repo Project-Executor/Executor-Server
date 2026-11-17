@@ -13,11 +13,15 @@ public record AdminUserResponse(
         String nickname,
         Role role,
         int coin,
-        Instant createdAt
+        Instant createdAt,
+        /** 정지 기한. null이면 정지 아님, 9999-12-31T23:59:59Z면 영구. 지난 시각이면 이미 풀린 것 */
+        Instant suspendedUntil,
+        String suspendReason
 ) {
     /** user.account가 읽혀 있어야 한다 (fetch join) */
     public static AdminUserResponse from(User user) {
         return new AdminUserResponse(user.getUserId(), user.getAccount().getEmail(), user.getNickname(),
-                user.getAccount().getRole(), user.getCoin(), user.getAccount().getCreatedAt());
+                user.getAccount().getRole(), user.getCoin(), user.getAccount().getCreatedAt(),
+                user.getAccount().getSuspendedUntil(), user.getAccount().getSuspendReason());
     }
 }

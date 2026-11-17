@@ -3,6 +3,7 @@ package com.seyoung5309.executorserver.domain.admin.controller;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminCoinRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminCoinResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminRoleRequest;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminSuspendRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminUserDetailResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminUserResponse;
 import com.seyoung5309.executorserver.domain.admin.service.AdminUserService;
@@ -73,5 +74,20 @@ public class AdminUserController {
     public AdminUserResponse changeRole(@LoginUser Long adminId, @PathVariable Long userId,
                                         @Valid @RequestBody AdminRoleRequest request) {
         return adminUserService.changeRole(adminId, userId, request.role());
+    }
+
+    @Operation(summary = "계정 정지",
+            description = "until(ISO-8601 UTC)까지 정지, null이면 영구. reason 필수(200자 이하). 이미 정지 중이면 새 값으로 바꾼다. "
+                    + "자기 자신은 400. 로그인·토큰 재발급이 막힌다(이미 받은 Access Token은 최대 30분 유효).")
+    @PutMapping("/{userId}/suspension")
+    public AdminUserResponse suspend(@LoginUser Long adminId, @PathVariable Long userId,
+                                     @Valid @RequestBody AdminSuspendRequest request) {
+        return adminUserService.suspend(adminId, userId, request.until(), request.reason());
+    }
+
+    @Operation(summary = "정지 해제", description = "정지 중이 아니어도 200.")
+    @DeleteMapping("/{userId}/suspension")
+    public AdminUserResponse unsuspend(@PathVariable Long userId) {
+        return adminUserService.unsuspend(userId);
     }
 }

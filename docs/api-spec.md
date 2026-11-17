@@ -53,6 +53,7 @@
 | 401 | `INVALID_REFRESH_TOKEN` | Refresh Token이 만료됐거나 무효화됨 |
 | 401 | `INVALID_CREDENTIALS` | 이메일 또는 비밀번호가 틀림 |
 | 403 | `FORBIDDEN` | 권한 없음 (다른 사람의 리소스, 관리자 전용 API) |
+| 403 | `ACCOUNT_SUSPENDED` | 정지된 계정 (로그인·토큰 재발급). 메시지에 기한(한국 시간)과 사유가 들어 있어 그대로 보여 주면 된다. 예: `정지된 계정입니다. (2026-11-20 18:00까지, 한국 시간) 사유: 욕설` |
 | 403 | `STAGE_LOCKED` | 아직 해금되지 않은 스테이지 |
 | 404 | `NOT_FOUND` | 리소스 없음 |
 | 409 | `DUPLICATE_EMAIL` | 이미 가입된 이메일 |
@@ -183,7 +184,7 @@
 ```
 - `hasNickname`이 `false`면(가입 후 아직 닉네임을 정하지 않음, `nickname`은 `null`) 클라이언트는 바로 튜토리얼 1스테이지로 보내 닉네임을 입력받는다.
 
-**Error**: `401 INVALID_CREDENTIALS`
+**Error**: `401 INVALID_CREDENTIALS`, `403 ACCOUNT_SUSPENDED` (비밀번호가 맞을 때만. 틀리면 정지 여부와 상관없이 401)
 
 ---
 
@@ -201,7 +202,7 @@ Refresh Token으로 토큰을 다시 발급한다. Refresh Token도 새 것으�
 { "accessToken": "eyJhbGciOi...", "refreshToken": "eyJhbGciOi...", "accessTokenExpiresIn": 1800 }
 ```
 
-**Error**: `401 INVALID_REFRESH_TOKEN`
+**Error**: `401 INVALID_REFRESH_TOKEN`, `403 ACCOUNT_SUSPENDED` (재발급 중 정지된 경우. 로그인 화면으로 보내고 메시지를 보여 준다)
 
 ---
 
@@ -967,11 +968,13 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/mails` | 우편 발송 | 아래 참고 |
 | GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
-| GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt` |
+| GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt`, `suspendedUntil`(null이면 정지 아님, `9999-12-31T23:59:59Z`면 영구, 지난 시각이면 이미 풀림), `suspendReason` |
 | GET | `/admin/users/by-ids?ids=1,2,3` | ID로 여러 명 조회 | 한 번에 100개까지(중복은 한 번만, 비었거나 넘으면 `400`). ID 순. 없는 ID는 결과에서 빠진다. 항목은 `/admin/users`와 같다 |
 | GET | `/admin/users/{id}` | 유저 상세 | 목록 항목 + `comment`, `equippedSkinId`, `equippedThemeId`, `clearedStageCount`·`totalStars`(공식 스테이지), `items[] {itemId, name, itemType, quantity, acquiredAt}`(수량 0인 힌트 제외). 없으면 `404` |
 | PATCH | `/admin/users/{id}/coin` | 코인 조정 | `{ "amount": -100 }`. 더할 값(음수면 뺌, 0 불가, -1,000,000~1,000,000). 빼서 0 미만이면 `409 NOT_ENOUGH_COIN`(보유 코인을 메시지에 표시). 응답 `{ userId, coin }`(조정 후) |
 | PATCH | `/admin/users/{id}/role` | 권한 변경 | `{ "role": "ADMIN" }`. 자기 자신은 `400`. 새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용. 응답은 목록 항목과 같다 |
+| PUT | `/admin/users/{id}/suspension` | 계정 정지 | `{ "until": "2026-11-20T09:00:00Z", "reason": "욕설" }`. `until`이 null이면 영구 정지(`9999-12-31T23:59:59Z`로 저장), 값이 있으면 지금보다 뒤. `reason` 필수(200자 이하). 이미 정지 중이면 새 값으로 바꾼다. 자기 자신은 `400`. 로그인·재발급이 막히고 저장된 Refresh Token을 지운다(이미 받은 Access Token은 최대 30분 유효). 응답은 목록 항목과 같다 |
+| DELETE | `/admin/users/{id}/suspension` | 정지 해제 | 정지 중이 아니어도 `200`. 응답은 목록 항목과 같다 |
 
 ### POST `/admin/mails`
 

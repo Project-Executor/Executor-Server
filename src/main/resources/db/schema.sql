@@ -53,6 +53,8 @@ CREATE TABLE accounts (
     password    VARCHAR(255)    NOT NULL                COMMENT 'BCrypt 해시',
     role        ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER' COMMENT '권한',
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
+    suspended_until DATETIME    NULL                    COMMENT '정지 기한 (UTC). NULL이면 정지 아님, 9999-12-31 23:59:59면 영구 정지',
+    suspend_reason  VARCHAR(200) NULL                   COMMENT '정지 사유 (로그인 거부 메시지에 표시)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_accounts_email (email)

@@ -18,7 +18,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 @Slf4j
@@ -31,6 +34,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
+    private final Clock clock;
 
     /** 없는 이메일로 로그인할 때도 비밀번호 비교를 한 번 수행해서 응답 시간으로 가입 여부를 알 수 없게 한다 */
     private final String dummyPasswordHash;
@@ -39,12 +43,14 @@ public class AuthService {
                        UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
-                       RefreshTokenStore refreshTokenStore) {
+                       RefreshTokenStore refreshTokenStore,
+                       Clock clock) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.refreshTokenStore = refreshTokenStore;
+        this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
@@ -78,7 +84,7 @@ public class AuthService {
      * 로그인. Access Token과 Refresh Token을 발급하고 Refresh Token을 Redis에 저장한다.
      * 이메일이 없을 때와 비밀번호가 틀릴 때 같은 오류를 내서 가입 여부를 알 수 없게 한다.
      *
-     * @throws BusinessException INVALID_CREDENTIALS
+     * @throws BusinessException INVALID_CREDENTIALS, ACCOUNT_SUSPENDED
      */
     public LoginResponse login(LoginRequest request) {
         Account user = accountRepository.findByEmail(normalizeEmail(request.email())).orElse(null);
@@ -89,6 +95,8 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
+        // 비밀번호가 맞을 때만 정지 여부를 알려 준다 (틀린 비밀번호로 정지 여부를 알아낼 수 없게)
+        checkNotSuspended(user);
 
         User profile = userRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("프로필이 없는 계정입니다: userId=" + user.getId()));
@@ -113,7 +121,7 @@ public class AuthService {
     /**
      * 토큰 재발급. Refresh Token도 새 것으로 바꾸고(Rotation), 이전 Refresh Token은 쓸 수 없게 된다.
      *
-     * @throws BusinessException INVALID_REFRESH_TOKEN (만료·위조·이미 사용·로그아웃·탈퇴한 경우)
+     * @throws BusinessException INVALID_REFRESH_TOKEN (만료·위조·이미 사용·로그아웃·탈퇴한 경우), ACCOUNT_SUSPENDED
      */
     public TokenResponse reissue(String refreshToken) {
         Long userId = jwtProvider.parseRefreshToken(refreshToken);
@@ -121,6 +129,8 @@ public class AuthService {
         // 권한(role)이 바뀌었을 수 있으므로 DB에서 다시 읽는다. 탈퇴한 계정이면 거부
         Account user = accountRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        // 정지되면 다음 재발급부터 막힌다 (이미 받은 Access Token은 만료될 때까지, 최대 30분 유효)
+        checkNotSuspended(user);
 
         String newRefreshToken = jwtProvider.createRefreshToken(userId);
         if (!refreshTokenStore.rotate(userId, refreshToken, newRefreshToken, refreshTtl())) {
@@ -187,4 +197,22 @@ public class AuthService {
         }
         throw e;
     }
+
+    private void checkNotSuspended(Account account) {
+        if (account.isSuspendedAt(clock.instant())) {
+            throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED, suspendedMessage(account));
+        }
+    }
+
+    /** 예: "정지된 계정입니다. (2026-11-20 18:00까지, 한국 시간) 사유: 욕설" */
+    static String suspendedMessage(Account account) {
+        String period = Account.PERMANENT.equals(account.getSuspendedUntil())
+                ? "영구 정지"
+                : KST_MINUTE.format(account.getSuspendedUntil()) + "까지, 한국 시간";
+        String reason = account.getSuspendReason() == null ? "" : " 사유: " + account.getSuspendReason();
+        return "정지된 계정입니다. (" + period + ")" + reason;
+    }
+
+    private static final DateTimeFormatter KST_MINUTE =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 }
