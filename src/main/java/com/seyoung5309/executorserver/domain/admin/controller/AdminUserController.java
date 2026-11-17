@@ -11,6 +11,8 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "관리자 - 유저", description = "ADMIN 권한 필요")
 @RestController
 @RequestMapping("/api/admin/users")
@@ -34,5 +36,12 @@ public class AdminUserController {
             @Max(value = 50, message = "size는 50 이하여야 합니다.")
             int size) {
         return adminUserService.search(keyword, AdminUserService.parseRole(role), page, size);
+    }
+
+    @Operation(summary = "ID로 여러 명 조회",
+            description = "ids=1,2,3 (한 번에 100개까지, 중복은 한 번만). ID 순. 없는 ID는 결과에서 빠진다.")
+    @GetMapping("/by-ids")
+    public List<AdminUserResponse> lookup(@RequestParam(required = false) List<Long> ids) {
+        return adminUserService.lookup(ids);
     }
 }

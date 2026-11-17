@@ -89,4 +89,29 @@ class AdminUserServiceTest {
         assertThat(AdminUserService.parseId("12a")).isNull();
         assertThat(AdminUserService.parseId("1234567890123456789")).isNull();
     }
+
+    @Test
+    void ID_조회는_중복과_null을_빼고_한_번에_찾는다() {
+        when(userRepository.findAllWithAccountByIdIn(any())).thenReturn(List.of());
+        java.util.List<Long> ids = new java.util.ArrayList<>(List.of(3L, 1L, 3L));
+        ids.add(null);
+
+        service.lookup(ids);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Collection<Long>> captor = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(userRepository).findAllWithAccountByIdIn(captor.capture());
+        assertThat(captor.getValue()).containsExactly(3L, 1L);
+    }
+
+    @Test
+    void ID_조회가_비었거나_너무_많으면_INVALID_INPUT() {
+        List<Long> tooMany = java.util.stream.LongStream.rangeClosed(1, AdminUserService.LOOKUP_MAX + 1).boxed().toList();
+        for (List<Long> ids : java.util.Arrays.asList(null, List.<Long>of(), tooMany)) {
+            assertThatThrownBy(() -> service.lookup(ids))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
+        }
+        verify(userRepository, never()).findAllWithAccountByIdIn(any());
+    }
 }
