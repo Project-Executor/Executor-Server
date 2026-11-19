@@ -59,7 +59,7 @@ class StageServiceTest {
         stageService = new StageService(operationRepository, stageRepository, userStageRepository, userStageHintRepository,
                 userRepository, stageAccessService, new MapDataParser(JsonMapper.builder().build()));
 
-        when(operationRepository.findAllByOrderBySortOrderAsc()).thenReturn(List.of(tutorial, op1, op2));
+        when(operationRepository.findAllInPlayOrder()).thenReturn(List.of(tutorial, op1, op2));
         when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(t1, s1, s2));
     }
 

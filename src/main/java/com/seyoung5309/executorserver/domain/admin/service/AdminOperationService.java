@@ -3,8 +3,10 @@ package com.seyoung5309.executorserver.domain.admin.service;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationTreeResponse;
+import com.seyoung5309.executorserver.domain.stage.entity.Layer;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
+import com.seyoung5309.executorserver.domain.stage.repository.LayerRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -28,34 +30,37 @@ public class AdminOperationService {
 
     private final OperationRepository operationRepository;
     private final StageRepository stageRepository;
+    private final LayerRepository layerRepository;
 
-    /** 작전 전체 (표시 순서) + 소속 공식 스테이지 요약 (번호 순). 쿼리 2개 */
+    /** 작전 전체 (플레이 순서: 레이어 -> 작전) + 소속 공식 스테이지 요약 (번호 순). 쿼리 2개 */
     @Transactional(readOnly = true)
     public List<AdminOperationTreeResponse> getAll() {
         Map<Long, List<Stage>> stagesByOperation = stageRepository.findAllOfficialInPlayOrder().stream()
                 .collect(Collectors.groupingBy(s -> s.getOperation().getId()));
-        return operationRepository.findAllByOrderBySortOrderAsc().stream()
+        return operationRepository.findAllInPlayOrder().stream()
                 .map(o -> AdminOperationTreeResponse.of(o, stagesByOperation.getOrDefault(o.getId(), List.of())))
                 .toList();
     }
 
-    /** @throws BusinessException DUPLICATE_VALUE(이름 또는 순서 중복) */
+    /** @throws BusinessException NOT_FOUND(레이어), DUPLICATE_VALUE(이름 또는 레이어 안 순서 중복) */
     public AdminOperationResponse create(AdminOperationRequest request) {
         String name = request.name().strip();
-        checkDuplicate(NEW, name, request.sortOrder());
+        Layer layer = findLayer(request.layerId());
+        checkDuplicate(NEW, name, layer.getId(), request.sortOrder());
 
-        Operation operation = new Operation(name, AdminText.blankToNull(request.description()), request.sortOrder());
+        Operation operation = new Operation(layer, name, AdminText.blankToNull(request.description()), request.sortOrder());
         saveAndFlush(operation);
         return AdminOperationResponse.from(operation);
     }
 
-    /** @throws BusinessException NOT_FOUND, DUPLICATE_VALUE */
+    /** 레이어를 옮길 수도 있다. @throws BusinessException NOT_FOUND(작전·레이어), DUPLICATE_VALUE */
     public AdminOperationResponse update(Long operationId, AdminOperationRequest request) {
         Operation operation = find(operationId);
         String name = request.name().strip();
-        checkDuplicate(operationId, name, request.sortOrder());
+        Layer layer = findLayer(request.layerId());
+        checkDuplicate(operationId, name, layer.getId(), request.sortOrder());
 
-        operation.update(name, AdminText.blankToNull(request.description()), request.sortOrder());
+        operation.update(layer, name, AdminText.blankToNull(request.description()), request.sortOrder());
         saveAndFlush(operation);
         return AdminOperationResponse.from(operation);
     }
@@ -80,12 +85,18 @@ public class AdminOperationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "작전을 찾을 수 없습니다."));
     }
 
-    private void checkDuplicate(Long selfId, String name, int sortOrder) {
+    private Layer findLayer(Long layerId) {
+        return layerRepository.findById(layerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "레이어를 찾을 수 없습니다."));
+    }
+
+    private void checkDuplicate(Long selfId, String name, Long layerId, int sortOrder) {
         if (operationRepository.existsByNameAndIdNot(name, selfId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_VALUE, "이미 있는 작전 이름입니다.");
         }
-        if (operationRepository.existsBySortOrderAndIdNot(sortOrder, selfId)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_VALUE, "sortOrder " + sortOrder + "은(는) 다른 작전이 쓰고 있습니다.");
+        if (operationRepository.existsByLayerIdAndSortOrderAndIdNot(layerId, sortOrder, selfId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_VALUE,
+                    "sortOrder " + sortOrder + "은(는) 이 레이어의 다른 작전이 쓰고 있습니다.");
         }
     }
 
@@ -94,7 +105,7 @@ public class AdminOperationService {
             operationRepository.saveAndFlush(operation);
         } catch (DataIntegrityViolationException e) {
             // 검사한 뒤 다른 요청이 같은 값을 먼저 저장한 경우 (UNIQUE 제약)
-            throw new BusinessException(ErrorCode.DUPLICATE_VALUE, "작전 이름 또는 sortOrder가 이미 쓰이고 있습니다.");
+            throw new BusinessException(ErrorCode.DUPLICATE_VALUE, "작전 이름 또는 레이어 안 sortOrder가 이미 쓰이고 있습니다.");
         }
     }
 }

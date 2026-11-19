@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS user_stage_hints;
 DROP TABLE IF EXISTS user_stages;
 DROP TABLE IF EXISTS stages;
 DROP TABLE IF EXISTS operations;
+DROP TABLE IF EXISTS layers;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS friend_requests;
 DROP TABLE IF EXISTS friends;

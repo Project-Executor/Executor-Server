@@ -70,6 +70,7 @@
 | 409 | `NOT_VERIFIED` | 제작자가 클리어하지 않은 맵을 공개하려 함 |
 | 409 | `PUBLISHED_STAGE` | 공개된 맵을 수정하려 함 |
 | 409 | `OPERATION_HAS_STAGES` | 스테이지가 남아 있는 작전을 삭제하려 함 |
+| 409 | `LAYER_HAS_OPERATIONS` | 작전이 남아 있는 레이어를 삭제하려 함 |
 | 409 | `DUPLICATE_VALUE` | 관리자 등록·수정에서 겹칠 수 없는 값이 겹침 (작전 이름·순서, 같은 작전의 스테이지 번호, 도감 이름, 아이템 이름) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 
@@ -337,7 +338,8 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/operations`
 
-공식 작전과 스테이지 목록, 그리고 내 진행도를 한 번에 조회한다. `sort_order`, `stage_no` 순서로 정렬한다.
+공식 작전과 스테이지 목록, 그리고 내 진행도를 한 번에 조회한다. 플레이 순서(**레이어 `sort_order` → 작전 `sort_order` → `stage_no`**)로 정렬한다.
+작전마다 소속 **레이어**(스토리 대주제)가 `layer`로 온다. 화면에서 레이어별로 묶어 보여 줄 때 쓴다 (작전 `sortOrder`는 레이어 안에서의 순서).
 
 **Response** `200 OK`
 ```json
@@ -347,6 +349,7 @@ Redis에 저장된 Refresh Token을 지운다.
     "name": "Tutorial",
     "description": "홀로그램 시뮬레이션",
     "sortOrder": 0,
+    "layer": { "layerId": 1, "name": "Tutorial", "description": "홀로그램 시뮬레이션", "sortOrder": 0 },
     "stages": [
       {
         "stageId": 1,
@@ -993,9 +996,13 @@ Redis에 저장된 Refresh Token을 지운다.
 
 | Method | URL | 설명 | 요청 본문 / 비고 |
 | --- | --- | --- | --- |
-| GET | `/admin/operations` | 작전 전체 목록 | 표시 순서대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
-| POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder` |
-| PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음 |
+| GET | `/admin/layers` | 레이어 전체 목록 | 순서대로. 항목: `layerId`, `name`, `description`, `sortOrder`, `operationCount` |
+| POST | `/admin/layers` | 레이어 등록 (`201`) | `name`(1~100자), `description`, `sortOrder`(0 이상, 튜토리얼 = 0). 이름·순서가 겹치면 `409` |
+| PUT | `/admin/layers/{id}` | 레이어 수정 | 등록과 같음. 순서를 바꾸면 해금 순서도 바뀐다 |
+| DELETE | `/admin/layers/{id}` | 레이어 삭제 (`204`) | 작전이 남아 있으면 `409 LAYER_HAS_OPERATIONS` |
+| GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
+| POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
+| PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
 | GET | `/admin/stages/{id}` | 공식 스테이지 상세 | 사용자용과 달리 `mapData`에 `hints`가 그대로 들어 있다 |
 | POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보내고, `hints`가 있으면 배열이어야 한다 |

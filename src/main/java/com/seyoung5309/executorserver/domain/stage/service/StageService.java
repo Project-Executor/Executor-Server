@@ -40,11 +40,11 @@ public class StageService {
     private final MapDataParser mapDataParser;
 
     /**
-     * 공식 작전·스테이지 목록과 내 진행도(해금, 클리어, 별, 최고 기록).
-     * 스테이지가 없는 작전도 빈 목록으로 포함한다.
+     * 공식 작전·스테이지 목록과 내 진행도(해금, 클리어, 별, 최고 기록). 플레이 순서(레이어 -> 작전)대로이고,
+     * 작전마다 소속 레이어를 담는다. 스테이지가 없는 작전도 빈 목록으로 포함한다.
      */
     public List<OperationResponse> getOperations(Long userId) {
-        List<Operation> operations = operationRepository.findAllByOrderBySortOrderAsc();
+        List<Operation> operations = operationRepository.findAllInPlayOrder();
         List<Stage> stages = stageRepository.findAllOfficialInPlayOrder();
         Map<Long, UserStage> records = userStageRepository.findAllOfficialByUserId(userId).stream()
                 .collect(Collectors.toMap(record -> record.getStage().getId(), Function.identity()));

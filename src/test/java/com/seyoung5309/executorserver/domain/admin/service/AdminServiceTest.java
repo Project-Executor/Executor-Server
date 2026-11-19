@@ -8,9 +8,11 @@ import com.seyoung5309.executorserver.domain.item.entity.Item;
 import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
+import com.seyoung5309.executorserver.domain.stage.entity.Layer;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
+import com.seyoung5309.executorserver.domain.stage.repository.LayerRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -40,13 +42,17 @@ class AdminServiceTest {
     class 작전 {
         private OperationRepository operationRepository;
         private StageRepository stageRepository;
+        private LayerRepository layerRepository;
         private AdminOperationService service;
+        private final Layer layer1 = layer(2L, "Layer 1", 1);
 
         @BeforeEach
         void setUp() {
             operationRepository = mock(OperationRepository.class);
             stageRepository = mock(StageRepository.class);
-            service = new AdminOperationService(operationRepository, stageRepository);
+            layerRepository = mock(LayerRepository.class);
+            service = new AdminOperationService(operationRepository, stageRepository, layerRepository);
+            when(layerRepository.findById(2L)).thenReturn(Optional.of(layer1));
         }
 
         @Test
@@ -54,7 +60,7 @@ class AdminServiceTest {
             Operation tutorial = operation(1L, "Tutorial", 0);
             Operation chapter1 = operation(2L, "1장", 1);
             Operation empty = operation(3L, "2장", 2);
-            when(operationRepository.findAllByOrderBySortOrderAsc()).thenReturn(java.util.List.of(tutorial, chapter1, empty));
+            when(operationRepository.findAllInPlayOrder()).thenReturn(java.util.List.of(tutorial, chapter1, empty));
             when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(java.util.List.of(
                     officialStage(10L, tutorial, 1), officialStage(11L, tutorial, 2), officialStage(20L, chapter1, 1)));
 
@@ -68,18 +74,19 @@ class AdminServiceTest {
 
         @Test
         void 이름_앞뒤_공백을_지우고_빈_설명은_null로_저장한다() {
-            AdminOperationResponse response = service.create(new AdminOperationRequest("  1장  ", "  ", 1));
+            AdminOperationResponse response = service.create(new AdminOperationRequest("  1장  ", "  ", 1, 2L));
 
             assertThat(response.name()).isEqualTo("1장");
             assertThat(response.description()).isNull();
+            assertThat(response.layerId()).isEqualTo(2L);
             verify(operationRepository).existsByNameAndIdNot("1장", 0L);
         }
 
         @Test
         void 이름이나_순서가_겹치면_DUPLICATE_VALUE() {
-            when(operationRepository.existsBySortOrderAndIdNot(0, 0L)).thenReturn(true);
+            when(operationRepository.existsByLayerIdAndSortOrderAndIdNot(2L, 0, 0L)).thenReturn(true);
 
-            assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 0)), ErrorCode.DUPLICATE_VALUE);
+            assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 0, 2L)), ErrorCode.DUPLICATE_VALUE);
             verify(operationRepository, never()).saveAndFlush(any());
         }
 
@@ -88,18 +95,25 @@ class AdminServiceTest {
             Operation operation = operation(5L, "1장", 1);
             when(operationRepository.findById(5L)).thenReturn(Optional.of(operation));
 
-            service.update(5L, new AdminOperationRequest("1장", "설명", 1));
+            service.update(5L, new AdminOperationRequest("1장", "설명", 1, 2L));
 
             verify(operationRepository).existsByNameAndIdNot("1장", 5L);
-            verify(operationRepository).existsBySortOrderAndIdNot(1, 5L);
+            verify(operationRepository).existsByLayerIdAndSortOrderAndIdNot(2L, 1, 5L);
             assertThat(operation.getDescription()).isEqualTo("설명");
+            assertThat(operation.getLayer()).as("레이어를 옮길 수 있다").isSameAs(layer1);
         }
 
         @Test
         void 저장_중_UNIQUE_위반이면_DUPLICATE_VALUE() {
             when(operationRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("uk"));
 
-            assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 3)), ErrorCode.DUPLICATE_VALUE);
+            assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 3, 2L)), ErrorCode.DUPLICATE_VALUE);
+        }
+
+        @Test
+        void 없는_레이어면_NOT_FOUND() {
+            assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 3, 99L)), ErrorCode.NOT_FOUND);
+            verify(operationRepository, never()).saveAndFlush(any());
         }
 
         @Test
@@ -114,6 +128,57 @@ class AdminServiceTest {
         @Test
         void 없는_작전은_NOT_FOUND() {
             assertErrorCode(() -> service.delete(99L), ErrorCode.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    class 레이어 {
+        private LayerRepository layerRepository;
+        private OperationRepository operationRepository;
+        private AdminLayerService service;
+
+        @BeforeEach
+        void setUp() {
+            layerRepository = mock(LayerRepository.class);
+            operationRepository = mock(OperationRepository.class);
+            service = new AdminLayerService(layerRepository, operationRepository);
+        }
+
+        @Test
+        void 목록은_순서대로_소속_작전_수와_함께() {
+            when(layerRepository.findAllByOrderBySortOrderAsc()).thenReturn(java.util.List.of(layer(1L, "Tutorial", 0), layer(2L, "Layer 1", 1)));
+            when(operationRepository.countByLayerId(1L)).thenReturn(1L);
+
+            var all = service.getAll();
+
+            assertThat(all).extracting(l -> l.name()).containsExactly("Tutorial", "Layer 1");
+            assertThat(all).extracting(l -> l.operationCount()).containsExactly(1L, 0L);
+        }
+
+        @Test
+        void 등록은_이름_공백을_지우고_이름이나_순서가_겹치면_DUPLICATE_VALUE() {
+            assertThat(service.create(new AdminLayerRequest("  거짓의 층  ", " ", 2)).name()).isEqualTo("거짓의 층");
+            when(layerRepository.existsBySortOrderAndIdNot(0, 0L)).thenReturn(true);
+            assertErrorCode(() -> service.create(new AdminLayerRequest("새 레이어", null, 0)), ErrorCode.DUPLICATE_VALUE);
+        }
+
+        @Test
+        void 작전이_남은_레이어는_삭제할_수_없다() {
+            when(layerRepository.findById(1L)).thenReturn(Optional.of(layer(1L, "Tutorial", 0)));
+            when(operationRepository.existsByLayerId(1L)).thenReturn(true);
+
+            assertErrorCode(() -> service.delete(1L), ErrorCode.LAYER_HAS_OPERATIONS);
+            verify(layerRepository, never()).delete(any());
+        }
+
+        @Test
+        void 빈_레이어는_삭제된다() {
+            Layer empty = layer(3L, "빈 층", 2);
+            when(layerRepository.findById(3L)).thenReturn(Optional.of(empty));
+
+            service.delete(3L);
+
+            verify(layerRepository).delete(empty);
         }
     }
 
