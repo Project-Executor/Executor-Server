@@ -164,16 +164,31 @@ CREATE TABLE messages (
 -- 3. 작전 / 스테이지
 -- =====================================================================
 
--- 작전 (스테이지 상위 분류)
+-- 레이어 (스토리 대주제, 작전을 묶는다)
+CREATE TABLE layers (
+    id           BIGINT         NOT NULL AUTO_INCREMENT COMMENT '레이어 ID',
+    name         VARCHAR(100)   NOT NULL                COMMENT '레이어 이름',
+    description  VARCHAR(255)       NULL                COMMENT '레이어 설명',
+    sort_order   INT            NOT NULL                COMMENT '표시·플레이 순서 (튜토리얼 = 0)',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_layers_name (name),
+    UNIQUE KEY uk_layers_sort (sort_order)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '레이어';
+
+-- 작전 (스테이지 상위 분류, 스토리 소주제). 플레이 순서는 레이어 순서 -> 작전 순서 -> 스테이지 번호
 CREATE TABLE operations (
     id           BIGINT         NOT NULL AUTO_INCREMENT COMMENT '작전 ID',
+    layer_id     BIGINT         NOT NULL                COMMENT '소속 레이어 ID',
     name         VARCHAR(100)   NOT NULL                COMMENT '작전 이름',
     description  VARCHAR(255)       NULL                COMMENT '작전 설명',
-    sort_order   INT            NOT NULL                COMMENT '표시 순서 (튜토리얼 = 0)',
+    sort_order   INT            NOT NULL                COMMENT '레이어 안에서의 표시 순서 (튜토리얼 = 0)',
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_operations_name (name),
-    UNIQUE KEY uk_operations_sort (sort_order)
+    UNIQUE KEY uk_operations_layer_sort (layer_id, sort_order),
+    CONSTRAINT fk_operations_layer
+        FOREIGN KEY (layer_id) REFERENCES layers (id) ON DELETE RESTRICT
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '작전';
 
 
@@ -427,5 +442,8 @@ INSERT IGNORE INTO report_categories (name) VALUES
     ('버그 제보'),
     ('기타');
 
-INSERT IGNORE INTO operations (name, description, sort_order) VALUES
+INSERT IGNORE INTO layers (name, description, sort_order) VALUES
     ('Tutorial', '홀로그램 시뮬레이션', 0);
+
+INSERT IGNORE INTO operations (layer_id, name, description, sort_order)
+SELECT id, 'Tutorial', '홀로그램 시뮬레이션', 0 FROM layers WHERE sort_order = 0;

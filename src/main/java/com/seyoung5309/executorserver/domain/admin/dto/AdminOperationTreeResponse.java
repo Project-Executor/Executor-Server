@@ -10,13 +10,16 @@ import java.util.List;
 /**
  * 관리자 작전 목록 항목. 소속 공식 스테이지 요약을 함께 담는다 (맵 데이터는 스테이지 상세에서).
  *
- * @param stages 스테이지 번호 순
+ * @param sortOrder 레이어 안에서의 순서
+ * @param layerId   소속 레이어
+ * @param stages    스테이지 번호 순
  */
 public record AdminOperationTreeResponse(
         Long operationId,
         String name,
         String description,
         int sortOrder,
+        Long layerId,
         List<StageSummary> stages
 ) {
     public record StageSummary(
@@ -36,6 +39,6 @@ public record AdminOperationTreeResponse(
 
     public static AdminOperationTreeResponse of(Operation operation, List<Stage> stages) {
         return new AdminOperationTreeResponse(operation.getId(), operation.getName(), operation.getDescription(),
-                operation.getSortOrder(), stages.stream().map(StageSummary::from).toList());
+                operation.getSortOrder(), operation.getLayerId(), stages.stream().map(StageSummary::from).toList());
     }
 }

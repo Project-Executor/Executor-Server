@@ -1,6 +1,7 @@
 package com.seyoung5309.executorserver.domain.stage;
 
 import com.seyoung5309.executorserver.domain.auth.entity.Account;
+import com.seyoung5309.executorserver.domain.stage.entity.Layer;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
@@ -16,9 +17,24 @@ public final class StageFixtures {
     private StageFixtures() {
     }
 
+    /** 레이어 */
+    public static Layer layer(Long id, String name, int sortOrder) {
+        Layer layer = BeanUtils.instantiateClass(Layer.class);
+        ReflectionTestUtils.setField(layer, "id", id);
+        ReflectionTestUtils.setField(layer, "name", name);
+        ReflectionTestUtils.setField(layer, "sortOrder", sortOrder);
+        return layer;
+    }
+
+    /** 기본 레이어(id 1, "Tutorial", 순서 0)에 든 작전 */
     public static Operation operation(Long id, String name, int sortOrder) {
+        return operation(id, name, sortOrder, layer(1L, "Tutorial", 0));
+    }
+
+    public static Operation operation(Long id, String name, int sortOrder, Layer layer) {
         Operation operation = BeanUtils.instantiateClass(Operation.class);
         ReflectionTestUtils.setField(operation, "id", id);
+        ReflectionTestUtils.setField(operation, "layer", layer);
         ReflectionTestUtils.setField(operation, "name", name);
         ReflectionTestUtils.setField(operation, "sortOrder", sortOrder);
         return operation;

@@ -18,7 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 공식 스테이지 관리. 사용자 맵(creator_id가 있는 스테이지)은 여기서 다루지 않는다.
  * <p>
- * 해금 순서는 작전 sortOrder -> stageNo로 정해지므로, 번호를 바꾸면 사용자들의 해금 상태도 그에 맞게 다시 계산된다.
+ * 해금 순서는 레이어 sortOrder -> 작전 sortOrder -> stageNo로 정해지므로, 번호를 바꾸면 사용자들의 해금 상태도 그에 맞게 다시 계산된다.
  */
 @Service
 @RequiredArgsConstructor

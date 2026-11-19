@@ -8,7 +8,8 @@ import jakarta.validation.constraints.Size;
 /**
  * 작전 등록·수정 (PUT이므로 모든 값을 보낸다).
  *
- * @param sortOrder 표시 순서. 튜토리얼이 0이고 작전끼리 겹칠 수 없다
+ * @param sortOrder 레이어 안에서의 표시 순서. 튜토리얼이 0이고 같은 레이어 안 작전끼리 겹칠 수 없다
+ * @param layerId   소속 레이어 (필수)
  */
 public record AdminOperationRequest(
         @NotBlank(message = "name을 입력해 주세요.")
@@ -20,6 +21,9 @@ public record AdminOperationRequest(
 
         @NotNull(message = "sortOrder를 입력해 주세요.")
         @Min(value = 0, message = "sortOrder는 0 이상이어야 합니다.")
-        Integer sortOrder
+        Integer sortOrder,
+
+        @NotNull(message = "layerId를 입력해 주세요.")
+        Long layerId
 ) {
 }
