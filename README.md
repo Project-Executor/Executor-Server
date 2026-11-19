@@ -1,11 +1,22 @@
 # Executor(집행자) Server
 
 Unity 퍼즐 게임 **Executor(집행자)** 의 백엔드 API 서버.
-회원·프로필, 스테이지 플레이와 순위, 도감, 상점·우편, 친구·메시지, 사용자 제작 맵, 신고, 관리자 기능을 제공한다.
+회원·프로필, 스테이지 플레이와 순위, 도감, 상점·우편, 친구·메시지, 사용자 제작 맵, 신고, 공지, 관리자 기능을 제공한다.
+
+| 문서 | 내용 |
+| --- | --- |
+| [docs/api-spec.md](docs/api-spec.md) | API 명세 (요청·응답·오류 코드) |
+| [docs/map-data.md](docs/map-data.md) | 맵 JSON 구조와 게임 규칙 (Unity·관리자 맵 에디터가 함께 따르는 기준) |
+| [docs/requirements.md](docs/requirements.md) | 요구사항 정의서 |
+| Swagger UI | 배포 서버 `/swagger-ui/index.html` |
+
+| 저장소 | 역할 |
+| --- | --- |
+| **Executor-Server** (여기) | API 서버. `main`에 머지하면 Railway에 자동 배포 |
+| [Executor-Admin](https://github.com/Project-Executor/Executor-Admin) | 관리자 웹 (React). 로컬에서 `npm run dev`로 띄워 쓴다 |
+| [Executor-Game](https://github.com/Project-Executor/Executor-Game) | Unity 6 PC 2D 클라이언트 |
 
 - 배포 주소: `https://executor-server-production-032d.up.railway.app`
-- API 문서(Swagger UI): `/swagger-ui/index.html`
-- 상세 명세: [docs/api-spec.md](docs/api-spec.md), 요구사항: [docs/requirements.md](docs/requirements.md), 맵 데이터 구조: [docs/map-data.md](docs/map-data.md)
 
 ## 기술 스택
 
@@ -34,16 +45,18 @@ Executor-Server/                  ← 저장소 루트 = Railway Root Directory 
 └── src/main/
     ├── java/com/seyoung5309/executorserver/
     │   ├── domain/               ← 기능별 패키지 (controller / service / repository / entity / dto)
-    │   │   ├── auth              회원가입·로그인·토큰 재발급·탈퇴
+    │   │   ├── auth              회원가입·로그인·토큰 재발급·탈퇴·계정 정지
     │   │   ├── profile           프로필·닉네임·장착·검색
-    │   │   ├── stage             작전·스테이지·결과 제출·순위·사용자 맵
+    │   │   ├── stage             레이어·작전·스테이지·결과 제출(별 판정)·순위·사용자 맵
     │   │   ├── guidebook         도감
-    │   │   ├── item              상점·보유 아이템
+    │   │   ├── item              상점·보유 아이템 (스킨·테마)
     │   │   ├── mail              우편 (보상 수령)
     │   │   ├── friend            친구 요청·목록
     │   │   ├── message           친구 간 메시지
     │   │   ├── report            신고
-    │   │   └── admin             관리자 (작전·스테이지·도감·아이템·우편·신고 관리)
+    │   │   ├── notice            공지사항 (로그인 없이 조회)
+    │   │   ├── wordlist          감염된 컴퓨터 타자 해킹 단어 (로그인 없이 조회)
+    │   │   └── admin             관리자 (유저·레이어·작전·스테이지·도감·아이템·우편·신고·공지·단어 목록)
     │   └── global/               ← 공통 (config, exception, jpa, response, security)
     └── resources/
         ├── application.properties
@@ -129,9 +142,10 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 
 ## 작업 흐름
 
-- 브랜치: `main`(배포) ← `develop`(통합) ← `feature/*`, `fix/*`, `chore/*`
-- 작업 브랜치는 `develop`에서 만들고 PR의 base도 `develop`이다. 배포할 때만 `develop` → `main` PR을 연다.
-- 커밋·PR 제목은 `feat:`, `fix:`, `chore:` 접두어와 짧은 명사형(예: `feat: 힌트 열람 기록 구현`).
+- 브랜치: `main`(배포) ← `develop`(작업)
+- 기능 하나를 마치면 `develop`에 바로 커밋한다. 배포할 때만 `develop` → `main` PR을 연다 (초기에는 `feature/*` 브랜치와 PR을 썼다).
+- 커밋·PR 제목은 `feat:`, `fix:`, `chore:`, `docs:` 접두어와 짧은 명사형 (예: `feat: 타자 해킹 단어 목록 추가`).
+- **DB 구조가 바뀌면** `schema.sql`과 `migrations/`를 같이 고치고, 배포 PR을 머지하기 **전에** 운영 DB에 마이그레이션을 실행한다.
 
 ## 구현 메모
 
@@ -141,22 +155,18 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 - **목록 API**: 정렬은 서버가 정하고, 페이지 크기는 1~50으로 제한한다.
 - **사용자 맵**: `map_data`는 JSON 객체(최대 256KB)만 받는다. 제작자가 클리어해야 공개할 수 있고, 공개된 맵은 수정할 수 없다. 비공개 맵을 수정하면 플레이 기록이 지워진다.
 
-## 작업 이력
+## 주요 변경 이력
 
-| PR | 브랜치 | 내용 |
-| --- | --- | --- |
-| #1 | feature/shop | 상점: 아이템 목록·구매·보유 아이템 |
-| #2 | feature/stage-hint | 힌트 사용: 힌트 아이템 차감 후 스테이지 힌트 반환 |
-| #3 | feature/admin | 관리자: 작전·공식 스테이지·도감·아이템 관리 |
-| #5 | feature/friend | 친구: 요청·수락·거절·취소·삭제 |
-| #6 | feature/message | 메시지: 친구에게 보내기, 대화 목록·조회, 읽음 처리 |
-| #7 | feature/mail | 우편: 목록·받기·모두 받기, 관리자 발송 |
-| #8 | feature/report | 신고: 신고·내 신고, 관리자 목록·상태 변경 |
-| #9 | feature/user-map | 사용자 맵: 저장·수정·공개 전환·삭제, 공개 목록 |
-| #10 | chore/schema-safety | `schema.sql`에서 DROP 분리, `reset-dev.sql` 안전장치 |
-| #11 | fix/test-context | 테스트를 로컬 `executor_test` DB로 분리 (`.env.test`) |
-| #12 | chore/cleanup | Redis repository 비활성화, 생성·수정 시각 초 단위 통일 |
-| #14 | feature/hint-history | 힌트 열람 기록: 한 번 본 힌트는 무료 |
+자세한 내용은 `git log`와 각 배포 PR 본문을 본다.
+
+| 시기 | 내용 |
+| --- | --- |
+| 11/12 이전 | 상점, 관리자(작전·스테이지·도감·아이템), 친구, 메시지, 우편, 신고, 사용자 맵, `schema.sql` 안전장치, 테스트 DB 분리 |
+| 11/15 | 테이블 이름 정리 (`accounts`·`users`), 닉네임은 가입 후 튜토리얼에서 |
+| 11/17 | 관리자 유저 관리 (검색·코인·권한·정지), 공지사항 |
+| 11/18 | 체크포인트 기준 ★2 (`stars.maxUnstable`, `is_stable_cleared`) |
+| 11/19 | 레이어(스토리 대주제), 타자 해킹 단어 목록 |
+| 11/20 | 힌트 기능 제거, ★3 조건을 맵마다 선택 (`stars.bonus`, 서버 변경 없음) |
 
 ## 알려진 문제
 
