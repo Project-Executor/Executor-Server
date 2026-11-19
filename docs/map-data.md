@@ -315,7 +315,7 @@ W(위), A(왼쪽), S(아래), D(오른쪽) 입력 하나가 행동 하나다. **
 
 | 노드 필드 | 설명 |
 | --- | --- |
-| `speaker` | 이름표에 표시할 이름. 없으면 인물의 `name` |
+| `speaker` | 이름표에 표시할 이름. 없으면 인물의 `name`. `{nickname}`도 쓸 수 있다 (주인공 대사) |
 | `text` | 대사. `{nickname}`은 내 닉네임(`GET /profiles/me`의 `nickname`)으로 바꿔 보여 준다 (없으면 "집행자") |
 | `portrait` | 스탠딩 일러스트 `"인물ID/표정"` 또는 `"인물ID"` (선택). 없으면 `speaker`로 인물을 찾고 표정은 `default` |
 | `next` | 다음 노드 id. `choices`가 없을 때 쓴다 |
@@ -323,6 +323,7 @@ W(위), A(왼쪽), S(아래), D(오른쪽) 입력 하나가 행동 하나다. **
 | `effects` | 그 노드를 보여 줄 때 실행 |
 
 - `start`에서 시작해 `next`를 따라간다. `choices`가 있으면 고른 선택지의 `next`로 간다. `next`와 `choices`가 모두 없으면 대화가 끝난다.
+- 일러스트 위치: **주인공은 왼쪽, 다른 인물은 오른쪽**. 주인공 대사는 `speaker`가 `{nickname}`이나 "집행자"이거나 `portrait`가 `player`인 노드다. 주인공 대사에 `portrait`가 없으면 주인공 일러스트(`player`)를 쓴다.
 
 | effect type | 필드 | 설명 |
 | --- | --- | --- |
@@ -370,7 +371,8 @@ W(위), A(왼쪽), S(아래), D(오른쪽) 입력 하나가 행동 하나다. **
 
 | type | 설명 |
 | --- | --- |
-| `narration` | 나레이션 문장 한 줄 |
+| `narration` | 나레이션 문장 한 줄 (검은 화면 가운데) |
+| `line` | 인물 대사 한 줄. 대화창에 이름표·일러스트와 함께 보여 준다. 필드 `speaker`, `portrait`, `text`는 대화 노드와 같다 ([4장](#4-dialogues)). 예: `{ "type": "line", "speaker": "{nickname}", "text": "여긴 어디지…?" }` |
 | `inputNickname` | 닉네임 입력 창 (중복 확인 버튼 포함). `GET /profiles/check-nickname`로 확인하고 `PATCH /profiles/me`의 `nickname`으로 저장한다. **이미 닉네임이 있으면 건너뛴다** (로그인 응답의 `hasNickname`) |
 
 ---
