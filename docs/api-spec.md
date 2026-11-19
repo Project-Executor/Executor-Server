@@ -422,7 +422,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | cleared | 필수 |
 | moves | 1~9999. **구간 최고 기록의 합** ([map-data.md 3.3](map-data.md#33-체크포인트-checkpoint)). 체크포인트가 없는 맵은 쓴 턴 수와 같다. `cleared`가 `true`일 때만 기록에 반영한다 |
-| hiddenFound | 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
+| hiddenFound | **★3 조건 달성** 여부 (이름은 처음 조건이던 숨겨진 요소에서 왔다. 조건은 맵의 `stars.bonus`, [map-data.md 3.4](map-data.md#34-별-조건)). 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
 | encounteredGuidebookIds | 이번 판에서 만난 이상 개체의 도감 ID. 클리어하지 못해도 해금한다 |
 | unstableCount | 0~999, 기본값 `0`. 불안정 체크포인트(출구 포함) 수. 별 2 판정에 쓴다 |
 | rewinds | 0 이상, 선택. 워프한 횟수 (통계용, 지금은 저장하지 않는다) |
@@ -430,7 +430,7 @@ Redis에 저장된 Refresh Token을 지운다.
 **별 판정** ([map-data.md 3.4](map-data.md#34-별-조건))
 - 별 1 `clear`: 클리어
 - 별 2 `par`: `unstableCount <= map_data.stars.maxUnstable` (없거나 잘못된 값이면 0). 한 번 달성하면 `user_stages.is_stable_cleared`에 남는다. 필드 이름 `par`는 호환을 위해 그대로 둔다 (예전 기준은 "최소 기록 <= parMoves")
-- 별 3 `hidden`: `hiddenFound`
+- 별 3 `hidden`: `hiddenFound` (★3 조건은 맵마다 다르고 게임이 판정한다: 숨겨진 요소 모두 수집 또는 컴퓨터 시간 안에 복구). 필드 이름 `hidden`은 호환을 위해 그대로 둔다
 - 튜토리얼은 별 1만 있다
 
 **처리 순서** (하나의 트랜잭션)
