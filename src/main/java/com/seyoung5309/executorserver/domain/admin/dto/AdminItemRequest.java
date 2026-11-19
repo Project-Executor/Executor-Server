@@ -22,7 +22,7 @@ public record AdminItemRequest(
         @Size(max = 255, message = "description은 255자 이하여야 합니다.")
         String description,
 
-        @NotNull(message = "itemType을 입력해 주세요. (SKIN, THEME, HINT)")
+        @NotNull(message = "itemType을 입력해 주세요. (SKIN, THEME)")
         ItemType itemType,
 
         @NotNull(message = "price를 입력해 주세요.")

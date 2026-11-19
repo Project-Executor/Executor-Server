@@ -12,7 +12,6 @@ import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.UserStage;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
-import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,7 +33,6 @@ public class StageService {
     private final OperationRepository operationRepository;
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
-    private final UserStageHintRepository userStageHintRepository;
     private final UserRepository userRepository;
     private final StageAccessService stageAccessService;
     private final MapDataParser mapDataParser;
@@ -69,18 +67,13 @@ public class StageService {
     }
 
     /**
-     * 스테이지 상세와 맵 데이터(hints 제외), 내 기록.
+     * 스테이지 상세와 맵 데이터, 내 기록.
      *
      * @throws BusinessException NOT_FOUND, STAGE_LOCKED, FORBIDDEN
      */
     public StageDetailResponse getStageDetail(Long userId, Long stageId) {
         Stage stage = stageAccessService.getPlayableStage(userId, stageId);
         UserStage record = userStageRepository.findByUserIdAndStageId(userId, stageId).orElse(null);
-        MapDataParser.PublicMapData publicMap = mapDataParser.toPublic(stage.getMapData());
-        // 관리자가 힌트 수를 줄였으면 범위 밖 번호는 빼고 준다
-        List<Integer> viewedHints = userStageHintRepository.findHintIndexes(userId, stageId).stream()
-                .filter(index -> index < publicMap.hintCount())
-                .toList();
 
         return new StageDetailResponse(
                 stage.getId(),
@@ -91,9 +84,7 @@ public class StageService {
                 creatorOf(stage),
                 stage.getParMoves(),
                 stage.getRewardCoin(),
-                publicMap.hintCount(),
-                viewedHints,
-                publicMap.mapData(),
+                mapDataParser.parse(stage.getMapData()),
                 MyRecordResponse.of(stage, record)
         );
     }

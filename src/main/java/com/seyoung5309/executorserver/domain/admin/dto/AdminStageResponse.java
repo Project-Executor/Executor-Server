@@ -5,11 +5,7 @@ import tools.jackson.databind.JsonNode;
 
 import java.time.Instant;
 
-/**
- * 관리자용 스테이지 정보. 사용자용과 달리 mapData에 hints가 그대로 들어 있다.
- *
- * @param hintCount mapData의 hints 개수
- */
+/** 관리자용 스테이지 정보 */
 public record AdminStageResponse(
         Long stageId,
         Long operationId,
@@ -17,7 +13,6 @@ public record AdminStageResponse(
         StageType stageType,
         String title,
         JsonNode mapData,
-        int hintCount,
         int parMoves,
         int rewardCoin,
         Instant createdAt,

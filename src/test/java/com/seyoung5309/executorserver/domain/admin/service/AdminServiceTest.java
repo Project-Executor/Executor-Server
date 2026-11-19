@@ -198,20 +198,18 @@ class AdminServiceTest {
         }
 
         @Test
-        void 등록하면_공개된_공식_스테이지가_되고_힌트_개수가_나온다() {
-            AdminStageResponse response = service.create(request("{\"w\":3,\"hints\":[\"a\",\"b\"]}"));
+        void 등록하면_공개된_공식_스테이지가_된다() {
+            AdminStageResponse response = service.create(request("{\"w\":3}"));
 
-            assertThat(response.hintCount()).isEqualTo(2);
             assertThat(response.mapData().get("w").asInt()).isEqualTo(3);
             assertThat(response.operationId()).isEqualTo(1L);
             verify(stageRepository).saveAndFlush(argThat(s -> s.isPublic() && s.isOfficial()));
         }
 
         @Test
-        void mapData가_객체가_아니거나_hints가_배열이_아니면_INVALID_INPUT() {
+        void mapData가_객체가_아니면_INVALID_INPUT() {
             assertErrorCode(() -> service.create(request("[1,2]")), ErrorCode.INVALID_INPUT);
             assertErrorCode(() -> service.create(request("\"text\"")), ErrorCode.INVALID_INPUT);
-            assertErrorCode(() -> service.create(request("{\"hints\":\"a\"}")), ErrorCode.INVALID_INPUT);
             verify(stageRepository, never()).saveAndFlush(any());
         }
 
@@ -244,7 +242,7 @@ class AdminServiceTest {
             Stage stage = withMapData(officialStage(20L, op, 1), "{}");
             when(stageRepository.findById(20L)).thenReturn(Optional.of(stage));
 
-            service.update(20L, new AdminStageRequest(1L, 2, StageType.BOSS, " 보스 ", json("{\"hints\":[]}"), 15, 300));
+            service.update(20L, new AdminStageRequest(1L, 2, StageType.BOSS, " 보스 ", json("{\"w\":4}"), 15, 300));
 
             verify(stageRepository).existsByOperationIdAndStageNoAndIdNot(1L, 2, 20L);
             assertThat(stage.getStageNo()).isEqualTo(2);
@@ -374,7 +372,7 @@ class AdminServiceTest {
 
         @Test
         void 없는_아이템은_NOT_FOUND() {
-            assertErrorCode(() -> service.update(99L, new AdminItemRequest("a", null, null, ItemType.HINT, 1, true)),
+            assertErrorCode(() -> service.update(99L, new AdminItemRequest("a", null, null, ItemType.SKIN, 1, true)),
                     ErrorCode.NOT_FOUND);
         }
     }

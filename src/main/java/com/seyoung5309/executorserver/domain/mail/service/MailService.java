@@ -1,7 +1,6 @@
 package com.seyoung5309.executorserver.domain.mail.service;
 
 import com.seyoung5309.executorserver.domain.item.entity.Item;
-import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.UserItemRepository;
 import com.seyoung5309.executorserver.domain.mail.dto.ClaimAllResponse;
 import com.seyoung5309.executorserver.domain.mail.dto.ClaimResponse;
@@ -113,10 +112,6 @@ public class MailService {
             return new Grant(0, null);
         }
         int quantity = mail.getRewardItemQuantity();
-        if (item.getItemType() == ItemType.HINT) {
-            userItemRepository.addQuantity(userId, item.getId(), quantity, now);
-            return new Grant(0, new ClaimResponse.GrantedItem(item.getId(), item.getItemType(), quantity));
-        }
         if (userItemRepository.insertIfAbsent(userId, item.getId(), now) == 1) {
             return new Grant(0, new ClaimResponse.GrantedItem(item.getId(), item.getItemType(), 1));
         }

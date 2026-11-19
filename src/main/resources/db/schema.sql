@@ -67,7 +67,7 @@ CREATE TABLE items (
     name        VARCHAR(100)    NOT NULL                COMMENT '아이템 이름',
     image       VARCHAR(255)        NULL                COMMENT '아이템 이미지 경로',
     description VARCHAR(255)        NULL                COMMENT '아이템 설명',
-    item_type   ENUM('SKIN', 'THEME', 'HINT') NOT NULL  COMMENT 'SKIN: 캐릭터 스킨, THEME: 화면 테마, HINT: 힌트 소모품',
+    item_type   ENUM('SKIN', 'THEME') NOT NULL          COMMENT 'SKIN: 캐릭터 스킨, THEME: 화면 테마',
     price       INT             NOT NULL                COMMENT '가격 (코인)',
     is_active   BOOLEAN         NOT NULL DEFAULT TRUE   COMMENT '판매 중 여부 (삭제 대신 FALSE로)',
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
@@ -253,27 +253,6 @@ CREATE TABLE user_stages (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 스테이지 기록';
 
 
--- 사용자가 본 힌트
---  - 한 번 본 힌트는 다시 요청해도 힌트 아이템을 쓰지 않는다 (처음 INSERT될 때만 차감)
---  - 사용자 맵을 수정하면 그 맵의 플레이 기록과 함께 지운다
-CREATE TABLE user_stage_hints (
-    id          BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
-    user_id     BIGINT     NOT NULL                COMMENT '사용자 ID',
-    stage_id    BIGINT     NOT NULL                COMMENT '스테이지 ID',
-    hint_index  INT        NOT NULL                COMMENT 'map_data.hints 배열 번호 (0부터)',
-    viewed_at   DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '처음 본 날짜',
-
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_stage_hints (user_id, stage_id, hint_index),
-    KEY idx_user_stage_hints_stage (stage_id),
-    CONSTRAINT chk_user_stage_hints_index CHECK (hint_index >= 0),
-    CONSTRAINT fk_user_stage_hints_user
-        FOREIGN KEY (user_id) REFERENCES accounts (id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_stage_hints_stage
-        FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자가 본 힌트';
-
-
 -- =====================================================================
 -- 4. 도감
 -- =====================================================================
@@ -339,9 +318,8 @@ CREATE TABLE user_guidebooks (
 -- =====================================================================
 
 -- 사용자의 보유 아이템
---  - 구매 시 users.coin 차감과 INSERT/수량 증가를 하나의 트랜잭션으로 처리
---  - SKIN/THEME는 quantity = 1 고정, 이미 보유 중이면 구매 불가 (우편 보상이면 코인으로 환산 등 앱에서 처리)
---  - HINT는 ON DUPLICATE KEY UPDATE quantity = quantity + ? 로 증가, 사용 시 감소 (0이 되어도 행 유지)
+--  - 구매 시 users.coin 차감과 INSERT를 하나의 트랜잭션으로 처리
+--  - quantity = 1 고정, 이미 보유 중이면 구매 불가 (우편 보상이면 코인으로 환산)
 CREATE TABLE user_items (
     id           BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
     user_id      BIGINT     NOT NULL                COMMENT '사용자 ID',

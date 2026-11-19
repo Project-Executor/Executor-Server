@@ -10,7 +10,6 @@ import com.seyoung5309.executorserver.domain.stage.dto.PublicCustomStageResponse
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.repository.StageClearCount;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
-import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
@@ -52,7 +51,6 @@ public class CustomStageService {
 
     private final StageRepository stageRepository;
     private final UserStageRepository userStageRepository;
-    private final UserStageHintRepository userStageHintRepository;
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final MapDataParser mapDataParser;
@@ -109,7 +107,7 @@ public class CustomStageService {
     }
 
     /**
-     * 비공개 맵을 수정하고, 그 맵의 기록(제작자 기록 포함)과 힌트 열람 기록을 모두 지운다.
+     * 비공개 맵을 수정하고, 그 맵의 기록(제작자 기록 포함)을 모두 지운다.
      *
      * @throws BusinessException NOT_FOUND, FORBIDDEN(내 맵이 아님), PUBLISHED_STAGE(공개 중), INVALID_INPUT
      */
@@ -122,7 +120,6 @@ public class CustomStageService {
         stage.updateUserMap(request.title().strip(), mapData, request.parMoves());
         stageRepository.flush();
         userStageRepository.deleteByStageId(stageId);
-        userStageHintRepository.deleteByStageId(stageId);
         return new CustomStageStateResponse(stageId, false, false);
     }
 

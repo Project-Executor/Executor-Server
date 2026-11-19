@@ -10,7 +10,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * 사용자 맵 저장·수정 (PUT이므로 모든 값을 보낸다).
  *
- * @param mapData 맵 에디터가 만든 JSON 객체 그대로 (최대 256KB, hints가 있으면 배열)
+ * @param mapData 맵 에디터가 만든 JSON 객체 그대로 (최대 256KB)
  */
 public record CustomStageRequest(
         @NotBlank(message = "title을 입력해 주세요.")

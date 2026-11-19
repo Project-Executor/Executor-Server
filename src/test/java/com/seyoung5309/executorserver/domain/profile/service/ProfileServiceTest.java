@@ -173,13 +173,6 @@ class ProfileServiceTest {
         assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(4L, null)), ErrorCode.INVALID_INPUT);
     }
 
-    @Test
-    void 힌트는_장착할_수_없다() {
-        own(1L, item(9L, ItemType.HINT), 3);
-
-        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(null, 9L)), ErrorCode.INVALID_INPUT);
-    }
-
     // ---------- 다른 사용자 프로필 ----------
 
     @Test
