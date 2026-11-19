@@ -135,6 +135,7 @@
 |  | GET | `/reports/me` | 내 신고 목록 | REPORT-03 |
 | 공지 | GET | `/notices` 🔓 | 공지 목록 | NOTICE-01 |
 |  | GET | `/notices/{noticeId}` 🔓 | 공지 상세 | NOTICE-02 |
+| 단어 목록 | GET | `/word-lists/{wordListId}` 🔓 | 타자 해킹 단어 | |
 | 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04, NOTICE-03 |
 
 ---
@@ -986,6 +987,21 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
+## 8-2. 단어 목록 🔓
+
+맵의 감염된 컴퓨터(`computer`)를 해킹할 때 치는 단어. 맵의 `wordListId`로 부르고, 게임이 이 중에서 무작위로 뽑는다 (개수·제한 시간은 맵에서 컴퓨터마다 정한다, [map-data.md 3.9](map-data.md#39-감염된-컴퓨터-computer)). 오프라인 테스트에서도 받을 수 있게 로그인 없이 공개한다.
+
+### GET `/word-lists/{wordListId}` 🔓
+
+**Response** `200 OK`
+```json
+{ "wordListId": 1, "name": "기본 명령어", "words": ["sudo", "git push", "ls"] }
+```
+
+**Error**: `404 NOT_FOUND` (없거나 지운 목록. 게임은 기본 단어를 쓴다)
+
+---
+
 ## 9. 관리자 API 🛡️
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
@@ -1000,6 +1016,10 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/layers` | 레이어 등록 (`201`) | `name`(1~100자), `description`, `sortOrder`(0 이상, 튜토리얼 = 0). 이름·순서가 겹치면 `409` |
 | PUT | `/admin/layers/{id}` | 레이어 수정 | 등록과 같음. 순서를 바꾸면 해금 순서도 바뀐다 |
 | DELETE | `/admin/layers/{id}` | 레이어 삭제 (`204`) | 작전이 남아 있으면 `409 LAYER_HAS_OPERATIONS` |
+| GET | `/admin/word-lists` | 단어 목록 전체 | ID 순. 항목: `wordListId`, `name`, `description`, `words` |
+| POST | `/admin/word-lists` | 단어 목록 등록 (`201`) | `name`(1~100자, 겹치면 `409`), `description`, `words`(배열, 1000개 이하). 단어는 앞뒤 공백을 지우고 빈 줄·중복을 빼며, 남은 단어가 없거나 50자를 넘으면 `400` |
+| PUT | `/admin/word-lists/{id}` | 단어 목록 수정 | 등록과 같음. 단어는 통째로 바뀐다 |
+| DELETE | `/admin/word-lists/{id}` | 단어 목록 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 컴퓨터는 게임이 기본 단어를 쓴다) |
 | GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |

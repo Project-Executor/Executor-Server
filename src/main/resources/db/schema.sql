@@ -296,6 +296,27 @@ CREATE TABLE guidebooks (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '도감';
 
 
+-- 타자 해킹 단어 목록 (맵의 감염된 컴퓨터 computer.wordListId가 참조)
+CREATE TABLE word_lists (
+    id           BIGINT         NOT NULL AUTO_INCREMENT COMMENT '단어 목록 ID',
+    name         VARCHAR(100)   NOT NULL                COMMENT '목록 이름',
+    description  VARCHAR(255)       NULL                COMMENT '설명',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_word_lists_name (name)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '타자 해킹 단어 목록';
+
+CREATE TABLE word_list_words (
+    word_list_id BIGINT         NOT NULL COMMENT '단어 목록 ID',
+    position     INT            NOT NULL COMMENT '목록 안 순서 (0부터)',
+    word         VARCHAR(50)    NOT NULL COMMENT '단어',
+
+    PRIMARY KEY (word_list_id, position),
+    CONSTRAINT fk_word_list_words_list
+        FOREIGN KEY (word_list_id) REFERENCES word_lists (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '단어 목록의 단어';
+
+
 -- 사용자의 도감 해금 기록
 CREATE TABLE user_guidebooks (
     id            BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
