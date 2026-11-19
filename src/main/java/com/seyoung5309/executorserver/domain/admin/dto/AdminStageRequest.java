@@ -11,8 +11,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * 공식 스테이지 등록·수정 (PUT이므로 모든 값을 보낸다). 공개 여부는 항상 true다.
  *
- * @param mapData 맵 데이터 JSON 객체. 문자열로 감싸지 않고 객체 그대로 보낸다.
- *                "hints"가 있으면 배열이어야 한다 (그 밖의 구조는 Unity가 정한 대로 검사하지 않는다)
+ * @param mapData 맵 데이터 JSON 객체. 문자열로 감싸지 않고 객체 그대로 보낸다 (구조는 Unity가 정한 대로 검사하지 않는다)
  */
 public record AdminStageRequest(
         @NotNull(message = "operationId를 입력해 주세요.")

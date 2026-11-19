@@ -18,14 +18,14 @@ public class AdminStageController {
 
     private final AdminStageService adminStageService;
 
-    @Operation(summary = "공식 스테이지 상세", description = "사용자용과 달리 mapData에 hints가 그대로 들어 있다.")
+    @Operation(summary = "공식 스테이지 상세")
     @GetMapping("/{stageId}")
     public AdminStageResponse get(@PathVariable Long stageId) {
         return adminStageService.get(stageId);
     }
 
     @Operation(summary = "공식 스테이지 등록",
-            description = "mapData는 JSON 객체 그대로 보낸다(hints가 있으면 배열). 항상 공개 상태로 만든다. "
+            description = "mapData는 JSON 객체 그대로 보낸다. 항상 공개 상태로 만든다. "
                     + "같은 작전에 같은 stageNo가 있으면 409 DUPLICATE_VALUE.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

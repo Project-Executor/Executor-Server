@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ItemService {
 
-    static final int MAX_HINT_PURCHASE = 99;
 
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
@@ -58,30 +57,25 @@ public class ItemService {
      * 같은 사용자의 구매가 동시에 여러 건 들어와도 코인 차감 UPDATE가 프로필 행을 잠그므로 순서대로 처리된다.
      * 그래서 코인은 음수가 되지 않고, 스킨·테마는 한 번만 지급된다.
      *
-     * @param requestedQuantity null이면 1. 스킨·테마는 무시하고 1개
-     * @throws BusinessException NOT_FOUND(없거나 판매 중단), INVALID_INPUT(힌트 수량 범위), NOT_ENOUGH_COIN, ALREADY_OWNED
+     * @throws BusinessException NOT_FOUND(없거나 판매 중단), NOT_ENOUGH_COIN, ALREADY_OWNED
      */
     @Transactional
-    public PurchaseResponse purchase(Long userId, Long itemId, Integer requestedQuantity) {
+    public PurchaseResponse purchase(Long userId, Long itemId) {
         Item item = itemRepository.findByIdAndIsActiveTrue(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "판매 중인 아이템을 찾을 수 없습니다."));
-        boolean stackable = item.getItemType() == ItemType.HINT;
-        int quantity = stackable ? validateHintQuantity(requestedQuantity) : 1;
 
-        // 스킨·테마를 이미 가졌으면 코인을 쓰기 전에 알려 준다 (코인이 모자라도 ALREADY_OWNED가 먼저).
+        // 이미 가졌으면 코인을 쓰기 전에 알려 준다 (코인이 모자라도 ALREADY_OWNED가 먼저).
         // 동시에 들어온 요청은 아래 insertIfAbsent에서 한 번 더 막는다.
-        if (!stackable && isOwned(userId, itemId)) {
+        if (isOwned(userId, itemId)) {
             throw alreadyOwned();
         }
 
-        int cost = totalCost(item.getPrice(), quantity);
+        int cost = item.getPrice();
         if (userRepository.spendCoin(userId, cost) == 0) {
             throw new BusinessException(ErrorCode.NOT_ENOUGH_COIN, "코인이 부족합니다. (필요: " + cost + "코인)");
         }
 
-        if (stackable) {
-            userItemRepository.addQuantity(userId, itemId, quantity, clock.instant());
-        } else if (userItemRepository.insertIfAbsent(userId, itemId, clock.instant()) == 0) {
+        if (userItemRepository.insertIfAbsent(userId, itemId, clock.instant()) == 0) {
             throw alreadyOwned(); // 예외로 트랜잭션이 롤백되어 위에서 뺀 코인도 되돌아온다
         }
 
@@ -91,7 +85,7 @@ public class ItemService {
     }
 
     /**
-     * 내 보유 아이템 (아이템 ID 순). 다 쓴 힌트(수량 0)는 빠진다.
+     * 내 보유 아이템 (아이템 ID 순).
      *
      * @param itemType null이면 전체
      */
@@ -117,21 +111,12 @@ public class ItemService {
         try {
             return ItemType.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME, HINT 중 하나여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME 중 하나여야 합니다.");
         }
     }
 
     private boolean isOwned(Long userId, Long itemId) {
         return userItemRepository.findQuantity(userId, itemId).map(q -> q > 0).orElse(false);
-    }
-
-    private static int validateHintQuantity(Integer requested) {
-        int quantity = requested == null ? 1 : requested;
-        if (quantity < 1 || quantity > MAX_HINT_PURCHASE) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "힌트는 한 번에 1~" + MAX_HINT_PURCHASE + "개까지 살 수 있습니다.");
-        }
-        return quantity;
     }
 
     /** 가격 × 수량. int 범위를 넘으면 그만큼 코인을 가질 수 없으므로 코인 부족으로 처리한다. */

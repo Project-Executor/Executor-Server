@@ -60,7 +60,6 @@
 | 409 | `DUPLICATE_NICKNAME` | 이미 쓰고 있는 닉네임 |
 | 409 | `NOT_ENOUGH_COIN` | 코인 부족 |
 | 409 | `ALREADY_OWNED` | 이미 가지고 있는 스킨·테마 |
-| 409 | `NOT_ENOUGH_ITEM` | 힌트 수량 부족 |
 | 409 | `ALREADY_CLAIMED` | 이미 받은 우편 |
 | 409 | `MAIL_EXPIRED` | 만료된 우편 |
 | 409 | `ALREADY_FRIEND` | 이미 친구 |
@@ -103,7 +102,6 @@
 |  | GET | `/stages/{stageId}` | 스테이지 상세 | STAGE-02, 03 |
 |  | POST | `/stages/{stageId}/results` | 플레이 결과 제출 | STAGE-04~08, GUIDE-01 |
 |  | GET | `/stages/{stageId}/rankings` | 최소 턴 순위 | STAGE-09 |
-|  | POST | `/stages/{stageId}/hint` | 힌트 사용 | SHOP-07 |
 | 사용자 맵 | GET | `/custom-stages` | 공개 맵 목록 | CUSTOM-07 |
 |  | GET | `/custom-stages/me` | 내가 만든 맵 목록 | CUSTOM-08 |
 |  | POST | `/custom-stages` | 맵 저장 | CUSTOM-01 |
@@ -389,9 +387,7 @@ Redis에 저장된 Refresh Token을 지운다.
   "creator": null,
   "parMoves": 20,
   "rewardCoin": 50,
-  "hintCount": 1,
-  "viewedHintIndexes": [],
-  "mapData": { "...": "map_data JSON에서 hints 필드를 뺀 나머지" },
+  "mapData": { "...": "map_data JSON 그대로" },
   "myRecord": {
     "cleared": false,
     "stars": { "clear": false, "par": false, "hidden": false, "count": 0, "max": 3 },
@@ -401,8 +397,6 @@ Redis에 저장된 Refresh Token을 지운다.
 }
 ```
 - `creator`: 공식 스테이지는 `null`, 사용자 맵은 `UserSummary`
-- `hintCount`: 이 스테이지에서 받을 수 있는 힌트 개수
-- `viewedHintIndexes`: 내가 이미 본 힌트 번호(오름차순). 이 번호는 힌트 API로 다시 받아도 아이템이 빠지지 않는다
 
 **Error**: `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`
 
@@ -428,7 +422,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | cleared | 필수 |
 | moves | 1~9999. **구간 최고 기록의 합** ([map-data.md 3.3](map-data.md#33-체크포인트-checkpoint)). 체크포인트가 없는 맵은 쓴 턴 수와 같다. `cleared`가 `true`일 때만 기록에 반영한다 |
-| hiddenFound | 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
+| hiddenFound | **★3 조건 달성** 여부 (이름은 처음 조건이던 숨겨진 요소에서 왔다. 조건은 맵의 `stars.bonus`, [map-data.md 3.4](map-data.md#34-별-조건)). 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
 | encounteredGuidebookIds | 이번 판에서 만난 이상 개체의 도감 ID. 클리어하지 못해도 해금한다 |
 | unstableCount | 0~999, 기본값 `0`. 불안정 체크포인트(출구 포함) 수. 별 2 판정에 쓴다 |
 | rewinds | 0 이상, 선택. 워프한 횟수 (통계용, 지금은 저장하지 않는다) |
@@ -436,7 +430,7 @@ Redis에 저장된 Refresh Token을 지운다.
 **별 판정** ([map-data.md 3.4](map-data.md#34-별-조건))
 - 별 1 `clear`: 클리어
 - 별 2 `par`: `unstableCount <= map_data.stars.maxUnstable` (없거나 잘못된 값이면 0). 한 번 달성하면 `user_stages.is_stable_cleared`에 남는다. 필드 이름 `par`는 호환을 위해 그대로 둔다 (예전 기준은 "최소 기록 <= parMoves")
-- 별 3 `hidden`: `hiddenFound`
+- 별 3 `hidden`: `hiddenFound` (★3 조건은 맵마다 다르고 게임이 판정한다: 숨겨진 요소 모두 수집 또는 컴퓨터 시간 안에 복구). 필드 이름 `hidden`은 호환을 위해 그대로 둔다
 - 튜토리얼은 별 1만 있다
 
 **처리 순서** (하나의 트랜잭션)
@@ -485,36 +479,6 @@ Redis에 저장된 Refresh Token을 지운다.
 }
 ```
 - 내가 클리어하지 않았으면 `me`는 `null`이다.
-
----
-
-### POST `/stages/{stageId}/hint`
-
-이 스테이지의 힌트 하나를 받는다. 처음 보는 힌트면 힌트 아이템 1개를 쓰고, 이미 본 힌트는 무료로 다시 받는다.
-
-**Request**
-```json
-{ "hintIndex": 0 }
-```
-- `hintIndex`: 0부터 `hintCount - 1`까지
-
-**처리**
-- 본 힌트는 `user_stage_hints`에 (사용자, 스테이지, 힌트 번호)로 기록한다. 처음 기록될 때만 아이템을 쓴다.
-- 힌트 아이템 수량 확인과 1개 차감을 조건부 UPDATE 한 문장으로 처리한다. 힌트 아이템이 여러 종류면 아이템 ID가 작은 것부터 쓴다.
-- 같은 사용자의 힌트 요청은 프로필 행을 잠가 하나씩 처리한다. 같은 힌트를 동시에 요청해도 아이템은 1개만 빠진다.
-- 처음 보는 힌트인데 아이템이 없으면 409이고, 열람 기록도 남지 않는다.
-- 사용자 맵을 수정하면 그 맵의 힌트 열람 기록도 지워진다. 공식 스테이지는 관리자가 힌트를 바꿔도 기록이 남는다(같은 번호는 계속 무료).
-- `hintIndex` 범위 검사와 스테이지 접근 검사가 먼저다. 이 오류들로는 아이템이 빠지지 않는다.
-
-**Response** `200 OK`
-```json
-{ "hintIndex": 0, "content": "열쇠는 오른쪽 벽 너머에 있다.", "charged": true, "remainingHintItems": 2 }
-```
-- `content`: `map_data.hints[hintIndex]` 그대로. 문자열이 아니라 객체로 저장했다면 객체로 나간다(키 순서는 보장하지 않음).
-- `charged`: 이번 요청으로 아이템을 썼으면 `true`, 이미 본 힌트라 무료였으면 `false`
-- `remainingHintItems`: 남은 힌트 아이템 수(여러 종류면 합계)
-
-**Error**: `400 INVALID_INPUT` (범위를 벗어난 hintIndex, 힌트가 없는 스테이지), `403 STAGE_LOCKED`, `403 FORBIDDEN` (남의 비공개 맵), `404 NOT_FOUND`, `409 NOT_ENOUGH_ITEM` (처음 보는 힌트인데 아이템이 없음)
 
 ---
 
@@ -568,7 +532,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | title | 1~100자 |
 | parMoves | 1~9999 |
-| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지, `hints`가 있으면 배열인지, 크기(UTF-8 최대 256KB)만 검사한다. 내부 구조는 [map-data.md](map-data.md) |
+| mapData | 필수. 문자열이 아니라 JSON 객체 그대로 보낸다. 서버는 객체인지와 크기(UTF-8 최대 256KB)만 검사한다. 내부 구조는 [map-data.md](map-data.md) |
 
 **Response** `201 Created`
 ```json
@@ -579,7 +543,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### PUT `/custom-stages/{stageId}`
 
-비공개 맵만 수정할 수 있다. 수정하면 이 맵의 기록과 힌트 열람 기록이 모두 지워지므로 다시 클리어해야 공개할 수 있다.
+비공개 맵만 수정할 수 있다. 수정하면 이 맵의 기록이 모두 지워지므로 다시 클리어해야 공개할 수 있다.
 
 **Request**: `POST /custom-stages`와 같은 형식
 
@@ -661,7 +625,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ## 7. 상점 / 우편
 
-### GET `/items?type={SKIN|THEME|HINT}`
+### GET `/items?type={SKIN|THEME}`
 
 판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
 
@@ -669,7 +633,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ```json
 [
   { "itemId": 3, "name": "다크 모드 집행자", "image": "/items/skin_dark.png", "description": "어둠 속의 집행자", "itemType": "SKIN", "price": 300, "owned": true, "quantity": 1 },
-  { "itemId": 9, "name": "힌트 로그", "image": "/items/hint.png", "description": "스테이지 힌트 1회", "itemType": "HINT", "price": 30, "owned": true, "quantity": 2 }
+  { "itemId": 5, "name": "터미널 테마", "image": "/items/theme_terminal.png", "description": "초록 글씨 테마", "itemType": "THEME", "price": 200, "owned": false, "quantity": 0 }
 ]
 ```
 
@@ -677,29 +641,24 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### POST `/items/{itemId}/purchase`
 
-**Request**
-```json
-{ "quantity": 3 }
-```
-- 스킨과 테마는 `quantity`를 무시하고 1개로 처리한다. 힌트는 1~99개.
-- 본문이나 `quantity`를 빼면 1개.
-- 이미 가진 스킨·테마는 코인이 모자라도 `ALREADY_OWNED`가 먼저다.
+**Request**: 본문 없음 (예전 클라이언트가 보내는 `{ "quantity": n }`은 무시한다). 아이템은 1개씩 산다.
+- 이미 가진 아이템은 코인이 모자라도 `ALREADY_OWNED`가 먼저다.
 
 **처리**: 코인 차감(`coin >= 가격` 조건부 UPDATE)과 아이템 지급을 하나의 트랜잭션으로 처리한다.
 
 **Response** `200 OK`
 ```json
-{ "itemId": 9, "quantity": 5, "spentCoin": 90, "remainingCoin": 310 }
+{ "itemId": 3, "quantity": 1, "spentCoin": 300, "remainingCoin": 200 }
 ```
-- `quantity`: 구매한 뒤의 보유 수량
+- `quantity`: 구매한 뒤의 보유 수량 (항상 1)
 
-**Error**: `400 INVALID_INPUT` (힌트 수량이 1~99 밖), `404 NOT_FOUND` (없거나 판매가 중단된 아이템), `409 NOT_ENOUGH_COIN`, `409 ALREADY_OWNED`
+**Error**: `404 NOT_FOUND` (없거나 판매가 중단된 아이템), `409 NOT_ENOUGH_COIN`, `409 ALREADY_OWNED`
 
 ---
 
-### GET `/users/me/items?type={SKIN|THEME|HINT}`
+### GET `/users/me/items?type={SKIN|THEME}`
 
-아이템 ID 순. 다 쓴 힌트(수량 0)는 빠진다. `equipped`는 지금 장착 중인 스킨·테마인지 나타낸다.
+아이템 ID 순. `equipped`는 지금 장착 중인 스킨·테마인지 나타낸다.
 
 **Response** `200 OK`
 ```json
@@ -1024,8 +983,8 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
-| GET | `/admin/stages/{id}` | 공식 스테이지 상세 | 사용자용과 달리 `mapData`에 `hints`가 그대로 들어 있다 |
-| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보내고, `hints`가 있으면 배열이어야 한다 |
+| GET | `/admin/stages/{id}` | 공식 스테이지 상세 | |
+| POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보낸다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
 | GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment` |
@@ -1040,7 +999,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 | GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt`, `suspendedUntil`(null이면 정지 아님, `9999-12-31T23:59:59Z`면 영구, 지난 시각이면 이미 풀림), `suspendReason` |
 | GET | `/admin/users/by-ids?ids=1,2,3` | ID로 여러 명 조회 | 한 번에 100개까지(중복은 한 번만, 비었거나 넘으면 `400`). ID 순. 없는 ID는 결과에서 빠진다. 항목은 `/admin/users`와 같다 |
-| GET | `/admin/users/{id}` | 유저 상세 | 목록 항목 + `comment`, `equippedSkinId`, `equippedThemeId`, `clearedStageCount`·`totalStars`(공식 스테이지), `items[] {itemId, name, itemType, quantity, acquiredAt}`(수량 0인 힌트 제외). 없으면 `404` |
+| GET | `/admin/users/{id}` | 유저 상세 | 목록 항목 + `comment`, `equippedSkinId`, `equippedThemeId`, `clearedStageCount`·`totalStars`(공식 스테이지), `items[] {itemId, name, itemType, quantity, acquiredAt}`. 없으면 `404` |
 | PATCH | `/admin/users/{id}/coin` | 코인 조정 | `{ "amount": -100 }`. 더할 값(음수면 뺌, 0 불가, -1,000,000~1,000,000). 빼서 0 미만이면 `409 NOT_ENOUGH_COIN`(보유 코인을 메시지에 표시). 응답 `{ userId, coin }`(조정 후) |
 | PATCH | `/admin/users/{id}/role` | 권한 변경 | `{ "role": "ADMIN" }`. 자기 자신은 `400`. 새 권한은 그 사용자의 다음 토큰 재발급(최대 30분 뒤)부터 적용. 응답은 목록 항목과 같다 |
 | PUT | `/admin/users/{id}/suspension` | 계정 정지 | `{ "until": "2026-11-20T09:00:00Z", "reason": "욕설" }`. `until`이 null이면 영구 정지(`9999-12-31T23:59:59Z`로 저장), 값이 있으면 지금보다 뒤. `reason` 필수(200자 이하). 이미 정지 중이면 새 값으로 바꾼다. 자기 자신은 `400`. 로그인·재발급이 막히고 저장된 Refresh Token을 지운다(이미 받은 Access Token은 최대 30분 유효). 응답은 목록 항목과 같다 |
@@ -1067,7 +1026,7 @@ Redis에 저장된 Refresh Token을 지운다.
 }
 ```
 - `toAll`이 `true`면 `receiverIds`를 무시하고 모든 사용자에게 한 통씩 보낸다. 아니면 `receiverIds`(최대 1000명, 중복은 한 번만)가 필요하고, 없는 사용자가 있으면 `404`(메시지에 그 ID 목록)로 아무에게도 보내지 않는다.
-- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다. 아이템이 있으면 스킨·테마는 1개, 힌트는 1~99개.
+- `rewardItemId`가 `null`이면 `rewardItemQuantity`는 0이어야 한다. 아이템이 있으면 1개.
 - `rewardCoin`(0~1,000,000)과 `rewardItemQuantity`는 생략하면 0. `title`은 1~100자, `content`는 2000자 이하.
 - `expiresAt`은 `null`(무기한)이거나 지금보다 뒤여야 한다.
 - 받는 사람 수와 상관없이 `INSERT ... SELECT` 한 문장으로 넣는다.

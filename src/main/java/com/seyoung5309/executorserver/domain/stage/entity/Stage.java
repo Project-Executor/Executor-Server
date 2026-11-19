@@ -45,7 +45,7 @@ public class Stage {
     @Column(nullable = false, length = 100)
     private String title;
 
-    /** 맵 데이터 JSON 원문. 서버는 hints 배열만 해석하고 나머지는 그대로 전달한다. */
+    /** 맵 데이터 JSON 원문. 서버는 해석하지 않고 그대로 전달한다 (구조: docs/map-data.md). */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     private String mapData;

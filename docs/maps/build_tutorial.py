@@ -218,7 +218,6 @@ def build(stage):
     for key in ("dialogues", "guides", "story"):
         if key in stage:
             map_data[key] = stage[key]
-    map_data["hints"] = []
     return map_data
 
 

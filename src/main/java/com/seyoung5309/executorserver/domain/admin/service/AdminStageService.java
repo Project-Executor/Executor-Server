@@ -31,7 +31,7 @@ public class AdminStageService {
     private final OperationRepository operationRepository;
     private final ObjectMapper objectMapper;
 
-    /** 관리자용 상세 (hints 포함) */
+    /** 관리자용 상세 */
     @Transactional(readOnly = true)
     public AdminStageResponse get(Long stageId) {
         return toResponse(findOfficial(stageId));
@@ -87,14 +87,10 @@ public class AdminStageService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "작전을 찾을 수 없습니다."));
     }
 
-    /** mapData는 JSON 객체여야 하고, hints가 있으면 배열이어야 한다 */
+    /** mapData는 JSON 객체여야 한다 */
     private String toMapDataJson(JsonNode mapData) {
         if (mapData == null || !mapData.isObject()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "mapData는 JSON 객체여야 합니다.");
-        }
-        JsonNode hints = mapData.get("hints");
-        if (hints != null && !hints.isArray()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "mapData.hints는 배열이어야 합니다.");
         }
         return objectMapper.writeValueAsString(mapData);
     }
@@ -115,7 +111,6 @@ public class AdminStageService {
 
     private AdminStageResponse toResponse(Stage stage) {
         JsonNode mapData = objectMapper.readTree(stage.getMapData());
-        JsonNode hints = mapData.get("hints");
         return new AdminStageResponse(
                 stage.getId(),
                 stage.getOperation().getId(),
@@ -123,7 +118,6 @@ public class AdminStageService {
                 stage.getStageType(),
                 stage.getTitle(),
                 mapData,
-                hints != null && hints.isArray() ? hints.size() : 0,
                 stage.getParMoves(),
                 stage.getRewardCoin(),
                 stage.getCreatedAt(),

@@ -16,7 +16,6 @@ import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
 import com.seyoung5309.executorserver.domain.stage.repository.OperationRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
-import com.seyoung5309.executorserver.domain.stage.repository.UserStageHintRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,6 @@ class StageServiceTest {
     private OperationRepository operationRepository;
     private StageRepository stageRepository;
     private UserStageRepository userStageRepository;
-    private UserStageHintRepository userStageHintRepository;
     private UserRepository userRepository;
     private StageAccessService stageAccessService;
     private StageService stageService;
@@ -53,10 +51,9 @@ class StageServiceTest {
         operationRepository = mock(OperationRepository.class);
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
-        userStageHintRepository = mock(UserStageHintRepository.class);
         userRepository = mock(UserRepository.class);
         stageAccessService = mock(StageAccessService.class);
-        stageService = new StageService(operationRepository, stageRepository, userStageRepository, userStageHintRepository,
+        stageService = new StageService(operationRepository, stageRepository, userStageRepository,
                 userRepository, stageAccessService, new MapDataParser(JsonMapper.builder().build()));
 
         when(operationRepository.findAllInPlayOrder()).thenReturn(List.of(tutorial, op1, op2));
@@ -116,21 +113,17 @@ class StageServiceTest {
     // ---------- 상세 ----------
 
     @Test
-    void 공식_스테이지_상세는_hints를_빼고_내_기록을_담는다() {
-        withMapData(s1, "{\"width\":7,\"hints\":[\"a\",\"b\"]}");
+    void 공식_스테이지_상세는_맵_데이터를_그대로_주고_내_기록을_담는다() {
+        withMapData(s1, "{\"width\":7,\"stars\":{\"maxUnstable\":1}}");
         when(stageAccessService.getPlayableStage(1L, 20L)).thenReturn(s1);
         when(userStageRepository.findByUserIdAndStageId(1L, 20L)).thenReturn(Optional.of(cleared(s1, 15, true)));
-        // 3번은 관리자가 힌트를 줄여서 범위 밖이 된 기록
-        when(userStageHintRepository.findHintIndexes(1L, 20L)).thenReturn(List.of(1, 3));
 
         StageDetailResponse detail = stageService.getStageDetail(1L, 20L);
 
         assertThat(detail.stageId()).isEqualTo(20L);
         assertThat(detail.operationId()).isEqualTo(2L);
         assertThat(detail.creator()).isNull();
-        assertThat(detail.hintCount()).isEqualTo(2);
-        assertThat(detail.viewedHintIndexes()).containsExactly(1);
-        assertThat(detail.mapData().has("hints")).isFalse();
+        assertThat(detail.mapData().get("stars").get("maxUnstable").asInt()).isEqualTo(1);
         assertThat(detail.mapData().get("width").asInt()).isEqualTo(7);
         assertThat(detail.myRecord().cleared()).isTrue();
         assertThat(detail.myRecord().bestMoves()).isEqualTo(15);

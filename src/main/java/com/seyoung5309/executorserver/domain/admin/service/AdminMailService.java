@@ -5,7 +5,6 @@ import com.seyoung5309.executorserver.domain.admin.dto.AdminMailResponse;
 import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.auth.repository.AccountRepository;
 import com.seyoung5309.executorserver.domain.item.entity.Item;
-import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 import com.seyoung5309.executorserver.domain.item.repository.ItemRepository;
 import com.seyoung5309.executorserver.domain.mail.repository.MailRepository;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
@@ -77,8 +76,8 @@ public class AdminMailService {
         if (quantity < 1) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "첨부 아이템이 있으면 rewardItemQuantity는 1 이상이어야 합니다.");
         }
-        if (item.getItemType() != ItemType.HINT && quantity != 1) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "스킨과 테마는 1개만 첨부할 수 있습니다.");
+        if (quantity != 1) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "아이템은 1개만 첨부할 수 있습니다.");
         }
     }
 }

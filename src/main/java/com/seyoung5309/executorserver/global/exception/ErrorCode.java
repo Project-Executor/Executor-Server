@@ -33,7 +33,6 @@ public enum ErrorCode {
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     NOT_ENOUGH_COIN(HttpStatus.CONFLICT, "코인이 부족합니다."),
     ALREADY_OWNED(HttpStatus.CONFLICT, "이미 보유한 아이템입니다."),
-    NOT_ENOUGH_ITEM(HttpStatus.CONFLICT, "아이템 수량이 부족합니다."),
     ALREADY_CLAIMED(HttpStatus.CONFLICT, "이미 수령한 우편입니다."),
     MAIL_EXPIRED(HttpStatus.CONFLICT, "만료된 우편입니다."),
     ALREADY_FRIEND(HttpStatus.CONFLICT, "이미 친구입니다."),

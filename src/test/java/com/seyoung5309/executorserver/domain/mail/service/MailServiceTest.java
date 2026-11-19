@@ -39,7 +39,7 @@ class MailServiceTest {
     private MailService service;
 
     private final Item skin = item(3L, ItemType.SKIN, 300);
-    private final Item hint = item(9L, ItemType.HINT, 30);
+    private final Item theme = item(9L, ItemType.THEME, 30);
 
     @BeforeEach
     void setUp() {
@@ -60,16 +60,6 @@ class MailServiceTest {
         assertThat(response).isEqualTo(new ClaimResponse(15L, 100, 0, null, 750));
         verify(userRepository).addCoin(ME, 100);
         verifyNoInteractions(userItemRepository);
-    }
-
-    @Test
-    void 힌트는_수량만큼_더한다() {
-        given(mail(15L, ME, 0, hint, 3));
-
-        ClaimResponse response = service.claim(ME, 15L);
-
-        assertThat(response.rewardItem()).isEqualTo(new ClaimResponse.GrantedItem(9L, ItemType.HINT, 3));
-        verify(userItemRepository).addQuantity(ME, 9L, 3, NOW);
     }
 
     @Test
@@ -143,19 +133,20 @@ class MailServiceTest {
     }
 
     @Test
-    void 모두_받기는_받은_것만_합치고_같은_아이템은_수량을_더한다() {
-        Mail coinAndHint = mail(1L, ME, 50, hint, 2);
+    void 모두_받기는_받은_것만_합치고_이미_가진_아이템은_코인으로_바꾼다() {
+        Mail coinAndTheme = mail(1L, ME, 50, theme, 1);
         Mail ownedSkin = mail(2L, ME, 0, skin, 1);
-        Mail moreHint = mail(3L, ME, 10, hint, 3);
+        Mail coinOnly = mail(3L, ME, 10, null, 0);
         Mail raced = mail(4L, ME, 999, null, 0);
-        when(mailRepository.findClaimable(ME, NOW)).thenReturn(List.of(coinAndHint, ownedSkin, moreHint, raced));
+        when(mailRepository.findClaimable(ME, NOW)).thenReturn(List.of(coinAndTheme, ownedSkin, coinOnly, raced));
         when(mailRepository.markClaimed(4L, ME, NOW)).thenReturn(0);
+        when(userItemRepository.insertIfAbsent(ME, 9L, NOW)).thenReturn(1);
         when(userItemRepository.insertIfAbsent(ME, 3L, NOW)).thenReturn(0);
 
         ClaimAllResponse response = service.claimAll(ME);
 
         assertThat(response).isEqualTo(new ClaimAllResponse(3, 60, 300,
-                List.of(new ClaimAllResponse.ItemQuantity(9L, 5)), 750));
+                List.of(new ClaimAllResponse.ItemQuantity(9L, 1)), 750));
         verify(userRepository, never()).addCoin(ME, 999);
     }
 

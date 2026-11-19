@@ -92,18 +92,19 @@ class AdminMailServiceTest {
     @Test
     void 첨부_아이템_수량_규칙() {
         when(itemRepository.findById(3L)).thenReturn(Optional.of(item(3L, ItemType.SKIN)));
-        when(itemRepository.findById(9L)).thenReturn(Optional.of(item(9L, ItemType.HINT)));
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(item(9L, ItemType.THEME)));
 
         // 아이템 없이 수량만
         assertErrorCode(() -> service.send(request(List.of(1L), null, null, 1, null)), ErrorCode.INVALID_INPUT);
         // 아이템이 있는데 수량 0
         assertErrorCode(() -> service.send(request(List.of(1L), null, 9L, 0, null)), ErrorCode.INVALID_INPUT);
-        // 스킨 2개
+        // 아이템은 1개만 (스킨·테마 모두)
         assertErrorCode(() -> service.send(request(List.of(1L), null, 3L, 2, null)), ErrorCode.INVALID_INPUT);
         // 없는 아이템
         assertErrorCode(() -> service.send(request(List.of(1L), null, 77L, 1, null)), ErrorCode.NOT_FOUND);
-        // 힌트 5개는 된다
-        assertThat(service.send(request(List.of(1L), null, 9L, 5, null)).sentCount()).isEqualTo(1);
+        assertErrorCode(() -> service.send(request(List.of(1L), null, 9L, 5, null)), ErrorCode.INVALID_INPUT);
+        // 테마 1개는 된다
+        assertThat(service.send(request(List.of(1L), null, 9L, 1, null)).sentCount()).isEqualTo(1);
     }
 
     private static AdminMailRequest request(List<Long> ids, Integer coin, Long itemId, Integer quantity, Instant expiresAt) {
