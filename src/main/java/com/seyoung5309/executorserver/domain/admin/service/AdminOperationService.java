@@ -94,7 +94,7 @@ public class AdminOperationService {
         if (operationRepository.existsByNameAndIdNot(name, selfId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_VALUE, "이미 있는 작전 이름입니다.");
         }
-        if (operationRepository.existsByLayerIdAndSortOrderAndIdNot(layerId, sortOrder, selfId)) {
+        if (operationRepository.existsByLayer_IdAndSortOrderAndIdNot(layerId, sortOrder, selfId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_VALUE,
                     "sortOrder " + sortOrder + "은(는) 이 레이어의 다른 작전이 쓰고 있습니다.");
         }

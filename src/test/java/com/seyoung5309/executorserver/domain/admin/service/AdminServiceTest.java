@@ -84,7 +84,7 @@ class AdminServiceTest {
 
         @Test
         void 이름이나_순서가_겹치면_DUPLICATE_VALUE() {
-            when(operationRepository.existsByLayerIdAndSortOrderAndIdNot(2L, 0, 0L)).thenReturn(true);
+            when(operationRepository.existsByLayer_IdAndSortOrderAndIdNot(2L, 0, 0L)).thenReturn(true);
 
             assertErrorCode(() -> service.create(new AdminOperationRequest("새 작전", null, 0, 2L)), ErrorCode.DUPLICATE_VALUE);
             verify(operationRepository, never()).saveAndFlush(any());
@@ -98,7 +98,7 @@ class AdminServiceTest {
             service.update(5L, new AdminOperationRequest("1장", "설명", 1, 2L));
 
             verify(operationRepository).existsByNameAndIdNot("1장", 5L);
-            verify(operationRepository).existsByLayerIdAndSortOrderAndIdNot(2L, 1, 5L);
+            verify(operationRepository).existsByLayer_IdAndSortOrderAndIdNot(2L, 1, 5L);
             assertThat(operation.getDescription()).isEqualTo("설명");
             assertThat(operation.getLayer()).as("레이어를 옮길 수 있다").isSameAs(layer1);
         }
@@ -147,7 +147,7 @@ class AdminServiceTest {
         @Test
         void 목록은_순서대로_소속_작전_수와_함께() {
             when(layerRepository.findAllByOrderBySortOrderAsc()).thenReturn(java.util.List.of(layer(1L, "Tutorial", 0), layer(2L, "Layer 1", 1)));
-            when(operationRepository.countByLayerId(1L)).thenReturn(1L);
+            when(operationRepository.countByLayer_Id(1L)).thenReturn(1L);
 
             var all = service.getAll();
 
@@ -165,7 +165,7 @@ class AdminServiceTest {
         @Test
         void 작전이_남은_레이어는_삭제할_수_없다() {
             when(layerRepository.findById(1L)).thenReturn(Optional.of(layer(1L, "Tutorial", 0)));
-            when(operationRepository.existsByLayerId(1L)).thenReturn(true);
+            when(operationRepository.existsByLayer_Id(1L)).thenReturn(true);
 
             assertErrorCode(() -> service.delete(1L), ErrorCode.LAYER_HAS_OPERATIONS);
             verify(layerRepository, never()).delete(any());

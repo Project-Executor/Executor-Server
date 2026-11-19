@@ -30,7 +30,7 @@ public class AdminLayerService {
     @Transactional(readOnly = true)
     public List<AdminLayerResponse> getAll() {
         return layerRepository.findAllByOrderBySortOrderAsc().stream()
-                .map(layer -> AdminLayerResponse.of(layer, operationRepository.countByLayerId(layer.getId())))
+                .map(layer -> AdminLayerResponse.of(layer, operationRepository.countByLayer_Id(layer.getId())))
                 .toList();
     }
 
@@ -50,13 +50,13 @@ public class AdminLayerService {
         checkDuplicate(layerId, name, request.sortOrder());
         layer.update(name, AdminText.blankToNull(request.description()), request.sortOrder());
         saveAndFlush(layer);
-        return AdminLayerResponse.of(layer, operationRepository.countByLayerId(layerId));
+        return AdminLayerResponse.of(layer, operationRepository.countByLayer_Id(layerId));
     }
 
     /** @throws BusinessException NOT_FOUND, LAYER_HAS_OPERATIONS */
     public void delete(Long layerId) {
         Layer layer = find(layerId);
-        if (operationRepository.existsByLayerId(layerId)) {
+        if (operationRepository.existsByLayer_Id(layerId)) {
             throw new BusinessException(ErrorCode.LAYER_HAS_OPERATIONS);
         }
         try {
