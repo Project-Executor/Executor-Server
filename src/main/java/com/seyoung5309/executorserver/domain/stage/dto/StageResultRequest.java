@@ -12,11 +12,13 @@ import java.util.List;
  *
  * @param cleared                 클리어 여부 (필수)
  * @param moves                   기록 (구간 최고 기록의 합, docs/map-data.md 3.3). 클리어했으면 필수 (1~9999)
- * @param hiddenFound             별 3 조건 달성 여부 (기본 false). 조건은 맵의 stars.bonus로 게임이 판정한다
- *                                (숨겨진 요소 모두 수집 또는 컴퓨터를 시간 안에 복구). 클리어했을 때만 반영
+ * @param hiddenFound             별 3 조건 달성 여부 (기본 false). 조건은 맵의 stars.star3으로 게임이 판정한다
+ *                                (데이터 파편 모두 수집, 컴퓨터를 시간 안에 복구 등). 클리어했을 때만 반영
  * @param encounteredGuidebookIds 이번 판에서 만난 이상 개체의 도감 ID. 클리어하지 못해도 해금한다
  * @param unstableCount           불안정 체크포인트(출구 포함) 수 (기본 0). 별 2 판정에 쓴다
  * @param rewinds                 워프한 횟수 (통계용, 지금은 저장하지 않는다)
+ * @param parAchieved             별 2 조건 달성 여부 (게임이 맵의 stars.star2로 판정). 없으면(예전 클라이언트)
+ *                                unstableCount <= stars.maxUnstable로 서버가 판정한다. 클리어했을 때만 반영
  */
 public record StageResultRequest(
         @NotNull(message = "cleared를 입력해 주세요.")
@@ -36,7 +38,9 @@ public record StageResultRequest(
         Integer unstableCount,
 
         @Min(value = 0, message = "rewinds는 0 이상이어야 합니다.")
-        Integer rewinds
+        Integer rewinds,
+
+        Boolean parAchieved
 ) {
 
     public int unstableCountOrZero() {

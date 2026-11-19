@@ -39,7 +39,7 @@ class StarsResponseTest {
     }
 
     @Test
-    void 기준_턴_이하와_숨겨진_요소를_모두_달성하면_별_3개() {
+    void 기준_턴_이하와_데이터_파편을_모두_달성하면_별_3개() {
         assertThat(StarsResponse.of(normal, cleared(normal, 8, true))).isEqualTo(new StarsResponse(true, true, true, 3, 3));
     }
 

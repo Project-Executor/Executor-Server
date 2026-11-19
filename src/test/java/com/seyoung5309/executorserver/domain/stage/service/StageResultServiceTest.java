@@ -89,7 +89,7 @@ class StageResultServiceTest {
         givenRecord(s1, cleared(s1, 18, false));
 
         StageResultResponse response = service.submit(1L, 10L,
-                new StageResultRequest(true, 25, false, null, 1, null));
+                new StageResultRequest(true, 25, false, null, 1, null, null));
 
         verify(userRepository, never()).addCoin(anyLong(), anyInt());
         assertThat(response.firstClear()).isFalse();
@@ -182,7 +182,7 @@ class StageResultServiceTest {
         when(userGuidebookRepository.unlock(1L, 7L, NOW)).thenReturn(0); // 이미 해금됨
 
         StageResultResponse response = service.submit(1L, 10L,
-                new StageResultRequest(false, null, null, List.of(3L, 7L, 3L, 999L), null, null));
+                new StageResultRequest(false, null, null, List.of(3L, 7L, 3L, 999L), null, null, null));
 
         assertThat(response.unlockedGuidebooks())
                 .containsExactly(new StageResultResponse.UnlockedGuidebook(3L, GuidebookCategory.BUG, "NullPointerException"));
@@ -195,7 +195,7 @@ class StageResultServiceTest {
     }
 
     private StageResultRequest request(boolean cleared, Integer moves, boolean hidden) {
-        return new StageResultRequest(cleared, moves, hidden, null, null, null);
+        return new StageResultRequest(cleared, moves, hidden, null, null, null, null);
     }
 
     // ---------- 별 2 (체크포인트 안정·불안정, docs/map-data.md 3.4) ----------
@@ -206,7 +206,7 @@ class StageResultServiceTest {
         UserStage record = notCleared(s1, 1);
         givenRecord(s1, record);
 
-        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 40, false, null, 2, 5));
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 40, false, null, 2, 5, null));
 
         assertThat(response.thisRun().par()).as("기준 턴(20)을 넘겨도 불안정 2 <= 허용 2").isTrue();
         assertThat(response.stars().par()).isTrue();
@@ -219,7 +219,7 @@ class StageResultServiceTest {
         UserStage record = notCleared(s1, 1);
         givenRecord(s1, record);
 
-        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 10, false, null, 2, null));
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 10, false, null, 2, null, null));
 
         assertThat(response.thisRun().par()).isFalse();
         assertThat(response.stars().par()).isFalse();
@@ -246,12 +246,69 @@ class StageResultServiceTest {
         assertThat(service.maxUnstable("{\"stars\":{\"maxUnstable\":3}}")).isEqualTo(3);
     }
 
+    // ---------- 별 개수와 게임 판정 (stars.count, parAchieved) ----------
+
+    @Test
+    void 게임이_보낸_parAchieved가_있으면_불안정_수보다_먼저_쓴다() {
+        withMapData(s1, "{\"stars\":{\"maxUnstable\":0}}");
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        // 불안정 5개지만 이 맵의 별 2 조건(예: 기록 n턴 이하)은 게임이 달성으로 판정
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 12, false, null, 5, null, true));
+
+        assertThat(response.thisRun().par()).isTrue();
+        assertThat(record.isStableCleared()).isTrue();
+
+        UserStage other = notCleared(s1, 1);
+        givenRecord(s1, other);
+        assertThat(service.submit(1L, 10L, new StageResultRequest(true, 12, false, null, 0, null, false)).thisRun().par())
+                .as("불안정 0이어도 게임이 미달성이라고 하면 없음").isFalse();
+    }
+
+    @Test
+    void 별_수가_2인_맵은_별_3을_주지_않고_최대가_2다() {
+        withMapData(s1, "{\"stars\":{\"count\":2}}");
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 12, true, null, 0, null, true));
+
+        assertThat(response.thisRun().par()).isTrue();
+        assertThat(response.thisRun().hidden()).isFalse();
+        assertThat(response.stars().max()).isEqualTo(2);
+        assertThat(response.stars().count()).isEqualTo(2);
+        assertThat(record.isHiddenFound()).isFalse();
+    }
+
+    @Test
+    void 별_수가_1인_맵은_클리어만() {
+        withMapData(s1, "{\"stars\":{\"count\":1}}");
+        UserStage record = notCleared(s1, 1);
+        givenRecord(s1, record);
+
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(true, 12, true, null, 0, null, true));
+
+        assertThat(response.stars().max()).isEqualTo(1);
+        assertThat(response.stars().count()).isEqualTo(1);
+        assertThat(record.isStableCleared()).isFalse();
+        assertThat(record.isHiddenFound()).isFalse();
+    }
+
+    @Test
+    void 별_수가_없거나_잘못되면_3() {
+        for (String mapData : List.of("{}", "{\"stars\":{\"count\":0}}", "{\"stars\":{\"count\":4}}", "{\"stars\":{\"count\":\"2\"}}", "not json")) {
+            assertThat(StarRules.starCount(mapData)).as(mapData).isEqualTo(3);
+        }
+        assertThat(StarRules.starCount("{\"stars\":{\"count\":2}}")).isEqualTo(2);
+    }
+
     @Test
     void 클리어하지_못한_판은_불안정_수와_상관없이_별_2를_기록하지_않는다() {
         UserStage record = notCleared(s1, 1);
         givenRecord(s1, record);
 
-        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(false, null, null, null, 0, null));
+        StageResultResponse response = service.submit(1L, 10L, new StageResultRequest(false, null, null, null, 0, null, null));
 
         assertThat(response.thisRun().par()).isFalse();
         assertThat(record.isStableCleared()).isFalse();

@@ -194,8 +194,8 @@ CREATE TABLE operations (
 
 -- 스테이지 (공식 스테이지 + 사용자 제작 맵)
 --  - creator_id IS NULL  -> 공식 스테이지
---  - 맵 구성(타일, 장애물, 열쇠, NPC, 대화/선택지, 추격 봇 미니게임, 숨겨진 버그/피스, 힌트)은 map_data(JSON)에 저장
---  - 별 조건: 1 = 클리어, 2 = best_moves <= par_moves, 3 = 숨겨진 버그 처치 또는 피스 수집
+--  - 맵 구성(타일, 장애물, 열쇠, NPC, 대화/선택지, 추격 봇 미니게임, 데이터 파편, 힌트)은 map_data(JSON)에 저장
+--  - 별 조건: 1 = 클리어, 2 = best_moves <= par_moves, 3 = 별 3 조건 (기본: 데이터 파편 모두 수집, 맵마다 다름)
 CREATE TABLE stages (
     id            BIGINT         NOT NULL AUTO_INCREMENT COMMENT '스테이지 ID',
     operation_id  BIGINT             NULL                COMMENT '작전 ID (사용자 맵은 NULL)',
@@ -229,13 +229,13 @@ CREATE TABLE stages (
 -- 사용자의 스테이지 기록 (첫 플레이 시 INSERT ... ON DUPLICATE KEY UPDATE 로 생성)
 --  - 클리어 여부 = first_cleared_at IS NOT NULL   (별 1)
 --  - 기준 턴 달성 = best_moves <= stages.par_moves (별 2, 계산으로 구하므로 컬럼 없음)
---  - 숨겨진 요소   = is_hidden_found              (별 3, 한 번 달성하면 유지)
+--  - 데이터 파편   = is_hidden_found              (별 3, 한 번 달성하면 유지)
 CREATE TABLE user_stages (
     id                BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
     user_id           BIGINT     NOT NULL                COMMENT '사용자 ID',
     stage_id          BIGINT     NOT NULL                COMMENT '스테이지 ID',
     best_moves        INT            NULL                COMMENT '클리어 시 최소 행동 횟수 (미클리어 NULL, 친구 기록 비교용)',
-    is_hidden_found   BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '숨겨진 버그 처치 / 피스 수집 달성 여부',
+    is_hidden_found   BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '별 3 조건 달성 여부 (기본 조건: 데이터 파편 모두 수집)',
     is_stable_cleared BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '별 2: 불안정 체크포인트가 허용 개수(map_data.stars.maxUnstable) 이하로 클리어한 적 있음',
     play_count        INT        NOT NULL DEFAULT 0      COMMENT '도전 횟수',
     first_cleared_at  DATETIME       NULL                COMMENT '첫 클리어 날짜 (NULL -> 값 전환 시 보상 지급)',

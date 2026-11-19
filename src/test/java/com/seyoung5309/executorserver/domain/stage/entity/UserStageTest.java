@@ -53,7 +53,7 @@ class UserStageTest {
     }
 
     @Test
-    void 숨겨진_요소는_한_번_찾으면_이후에_못_찾아도_유지된다() {
+    void 데이터_파편은_한_번_찾으면_이후에_못_찾아도_유지된다() {
         UserStage record = cleared(stage, 15, true);
 
         record.applyClear(14, false, false, t2);

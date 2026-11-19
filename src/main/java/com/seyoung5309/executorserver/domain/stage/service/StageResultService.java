@@ -10,7 +10,6 @@ import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse.RunRe
 import com.seyoung5309.executorserver.domain.stage.dto.StageResultResponse.UnlockedGuidebook;
 import com.seyoung5309.executorserver.domain.stage.dto.StarsResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
-import com.seyoung5309.executorserver.domain.stage.entity.StageType;
 import com.seyoung5309.executorserver.domain.stage.entity.UserStage;
 import com.seyoung5309.executorserver.domain.stage.repository.StageRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
@@ -47,7 +46,7 @@ public class StageResultService {
      * <ol>
      *   <li>기록 행을 만들거나 도전 횟수 +1 (INSERT ... ON DUPLICATE KEY UPDATE, 행 잠금)</li>
      *   <li>행 잠금(SELECT ... FOR UPDATE)으로 기록을 읽는다 -> 같은 기록에 대한 동시 요청은 순서대로 처리된다</li>
-     *   <li>클리어했으면 최소 기록·숨겨진 요소 갱신, 처음 클리어할 때만 보상 코인 지급 (공식 스테이지만)</li>
+     *   <li>클리어했으면 최소 기록·데이터 파편 갱신, 처음 클리어할 때만 보상 코인 지급 (공식 스테이지만)</li>
      *   <li>만난 도감 항목 해금 (이미 해금된 항목은 건너뜀)</li>
      * </ol>
      * 같은 결과를 다시 보내도(네트워크 재전송) 보상은 한 번만 지급된다.
@@ -71,8 +70,9 @@ public class StageResultService {
         boolean isNewBest = false;
         boolean firstClear = false;
         if (cleared) {
-            UserStage.ClearResult result = record.applyClear(request.moves(), request.hiddenFoundOrFalse(),
-                    isStable(stage, request), now);
+            int stars = StarRules.starCount(stage);
+            UserStage.ClearResult result = record.applyClear(request.moves(),
+                    stars >= 3 && request.hiddenFoundOrFalse(), stars >= 2 && isStar2(stage, request), now);
             isNewBest = result.isNewBest();
             firstClear = result.firstClear();
         }
@@ -103,14 +103,20 @@ public class StageResultService {
 
     private RunResult thisRun(Stage stage, StageResultRequest request) {
         boolean clear = request.cleared();
-        boolean tutorial = stage.getStageType() == StageType.TUTORIAL;
-        boolean par = clear && !tutorial && isStable(stage, request);
-        boolean hidden = clear && !tutorial && request.hiddenFoundOrFalse();
+        int stars = StarRules.starCount(stage);
+        boolean par = clear && stars >= 2 && isStar2(stage, request);
+        boolean hidden = clear && stars >= 3 && request.hiddenFoundOrFalse();
         return new RunResult(clear, par, hidden);
     }
 
-    /** 별 2 조건: 불안정 체크포인트 수가 맵의 허용 개수(stars.maxUnstable, 기본 0) 이하 */
-    private boolean isStable(Stage stage, StageResultRequest request) {
+    /**
+     * 별 2 조건 달성. 게임이 판정한 parAchieved가 있으면 그것을 쓰고(조건은 맵마다 다름),
+     * 없으면(예전 클라이언트) 불안정 체크포인트 수가 맵의 허용 개수(stars.maxUnstable, 기본 0) 이하인지로 판정한다
+     */
+    private boolean isStar2(Stage stage, StageResultRequest request) {
+        if (request.parAchieved() != null) {
+            return request.parAchieved();
+        }
         return request.unstableCountOrZero() <= maxUnstable(stage.getMapData());
     }
 
