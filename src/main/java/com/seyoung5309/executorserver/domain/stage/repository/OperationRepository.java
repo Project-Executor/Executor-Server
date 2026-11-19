@@ -15,9 +15,11 @@ public interface OperationRepository extends JpaRepository<Operation, Long> {
     boolean existsByNameAndIdNot(String name, Long id);
 
     /** 같은 레이어 안에서 순서가 겹치는지 */
-    boolean existsByLayerIdAndSortOrderAndIdNot(Long layerId, int sortOrder, Long id);
+    // 주의: Operation에 getLayerId()가 있어서 "ByLayerId"로 쓰면 Spring Data가 없는 필드 layerId로 읽고 실행할 때 실패한다.
+    // "Layer_Id"로 layer.id임을 밝힌다.
+    boolean existsByLayer_IdAndSortOrderAndIdNot(Long layerId, int sortOrder, Long id);
 
-    boolean existsByLayerId(Long layerId);
+    boolean existsByLayer_Id(Long layerId);
 
-    long countByLayerId(Long layerId);
+    long countByLayer_Id(Long layerId);
 }
