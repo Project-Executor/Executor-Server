@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -35,6 +37,10 @@ public class MessageService {
     /** 대화 조회 정렬: 최신순 (같은 시각이면 나중에 저장된 것 먼저). 클라이언트가 보낸 정렬은 쓰지 않는다. */
     private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
+    /** 도배 제한: 최근 SPAM_WINDOW 안에 SPAM_LIMIT번째 메시지부터 막는다 (3초 안에 5번째) */
+    static final int SPAM_LIMIT = 5;
+    static final Duration SPAM_WINDOW = Duration.ofSeconds(3);
+
     private final MessageRepository messageRepository;
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
@@ -45,7 +51,9 @@ public class MessageService {
      * 친구에게 메시지를 보낸다.
      * 친구가 아니면(없는 사용자 포함) NOT_FRIEND — 사용자가 있는지 없는지를 따로 알려 주지 않는다.
      *
-     * @throws BusinessException INVALID_INPUT(자기 자신), NOT_FRIEND
+     * 3초 안에 5번째 메시지는 MESSAGE_SPAM으로 막는다 (받는 사람 상관없이 보낸 메시지 기준, 막힌 메시지는 세지 않는다).
+     *
+     * @throws BusinessException INVALID_INPUT(자기 자신), NOT_FRIEND, MESSAGE_SPAM
      */
     public SendMessageResponse send(Long senderId, Long receiverId, String content) {
         if (senderId.equals(receiverId)) {
@@ -54,8 +62,12 @@ public class MessageService {
         if (!friendRepository.areFriends(senderId, receiverId)) {
             throw new BusinessException(ErrorCode.NOT_FRIEND);
         }
+        Instant now = clock.instant();
+        if (messageRepository.countBySender_IdAndCreatedAtAfter(senderId, now.minus(SPAM_WINDOW)) >= SPAM_LIMIT - 1) {
+            throw new BusinessException(ErrorCode.MESSAGE_SPAM);
+        }
         Message message = messageRepository.save(new Message(accountRepository.getReferenceById(senderId),
-                accountRepository.getReferenceById(receiverId), content, clock.instant()));
+                accountRepository.getReferenceById(receiverId), content, now));
         return new SendMessageResponse(message.getId(), message.getCreatedAt());
     }
 

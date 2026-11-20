@@ -70,6 +70,7 @@
 | 409 | `PUBLISHED_STAGE` | 공개된 맵을 수정하려 함 |
 | 409 | `OPERATION_HAS_STAGES` | 스테이지가 남아 있는 작전을 삭제하려 함 |
 | 409 | `LAYER_HAS_OPERATIONS` | 작전이 남아 있는 레이어를 삭제하려 함 |
+| 429 | `MESSAGE_SPAM` | 메시지 도배 (3초 안에 5번째 메시지). 조금 기다리면 다시 보낼 수 있다 |
 | 409 | `DUPLICATE_VALUE` | 관리자 등록·수정에서 겹칠 수 없는 값이 겹침 (작전 이름·순서, 같은 작전의 스테이지 번호, 도감 이름, 아이템 이름) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 
@@ -850,13 +851,14 @@ Redis에 저장된 Refresh Token을 지운다.
 { "receiverId": 12, "content": "18턴!" }
 ```
 - `content`: 1~500자
+- 도배 제한: 최근 3초 안에 보낸 메시지(받는 사람 상관없이)가 4개면 5번째는 막는다. 막힌 메시지는 세지 않으므로 가장 오래된 메시지가 3초를 지나면 다시 보낼 수 있다
 
 **Response** `201 Created`
 ```json
 { "messageId": 89, "createdAt": "2026-11-20T03:13:00Z" }
 ```
 
-**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다)
+**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다), `429 MESSAGE_SPAM` (도배)
 
 ---
 

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
@@ -51,6 +52,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             where m.sender.id = :partnerId and m.receiver.id = :userId and m.isRead = false
             """)
     int markAsRead(@Param("userId") Long userId, @Param("partnerId") Long partnerId);
+
+    /** 보낸 사람이 그 시각 뒤로 보낸 메시지 수 (받는 사람 상관없이). 도배 제한에 쓴다 */
+    long countBySender_IdAndCreatedAtAfter(Long senderId, Instant after);
 
     /** 나에게 온 안 읽은 메시지 전체 수 */
     long countByReceiverIdAndIsReadFalse(Long receiverId);

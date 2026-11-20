@@ -74,6 +74,26 @@ class MessageServiceTest {
     }
 
     @Test
+    void 최근_3초_안에_4번_보냈으면_5번째는_MESSAGE_SPAM이고_저장하지_않는다() {
+        when(friendRepository.areFriends(ME, FRIEND)).thenReturn(true);
+        when(messageRepository.countBySender_IdAndCreatedAtAfter(ME, NOW.minusSeconds(3))).thenReturn(4L);
+
+        assertErrorCode(() -> service.send(ME, FRIEND, "도배"), ErrorCode.MESSAGE_SPAM);
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void 최근_3초_안에_3번_보냈으면_4번째는_보낼_수_있다() {
+        when(friendRepository.areFriends(ME, FRIEND)).thenReturn(true);
+        when(messageRepository.countBySender_IdAndCreatedAtAfter(ME, NOW.minusSeconds(3))).thenReturn(3L);
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.send(ME, FRIEND, "4번째");
+
+        verify(messageRepository).save(any());
+    }
+
+    @Test
     void 친구가_아니면_NOT_FRIEND이고_저장하지_않는다() {
         when(friendRepository.areFriends(ME, 3L)).thenReturn(false);
 

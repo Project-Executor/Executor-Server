@@ -45,6 +45,9 @@ public enum ErrorCode {
     LAYER_HAS_OPERATIONS(HttpStatus.CONFLICT, "작전이 남아 있는 레이어는 삭제할 수 없습니다."),
     DUPLICATE_VALUE(HttpStatus.CONFLICT, "이미 사용 중인 값입니다."),
 
+    // 429
+    MESSAGE_SPAM(HttpStatus.TOO_MANY_REQUESTS, "메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 보내 주세요."),
+
     // 500
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
