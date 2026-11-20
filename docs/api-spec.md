@@ -60,8 +60,8 @@
 | 409 | `DUPLICATE_NICKNAME` | 이미 쓰고 있는 닉네임 |
 | 409 | `NOT_ENOUGH_COIN` | 코인 부족 |
 | 409 | `ALREADY_OWNED` | 이미 가지고 있는 스킨·테마 |
-| 409 | `ALREADY_CLAIMED` | 이미 받은 우편 |
-| 409 | `MAIL_EXPIRED` | 만료된 우편 |
+| 409 | `ALREADY_CLAIMED` | 이미 받은 메일 |
+| 409 | `MAIL_EXPIRED` | 만료된 메일 |
 | 409 | `ALREADY_FRIEND` | 이미 친구 |
 | 409 | `REQUEST_ALREADY_EXISTS` | 대기 중인 친구 요청이 이미 있음 |
 | 409 | `REQUEST_ALREADY_HANDLED` | 이미 수락·거절된 친구 요청 |
@@ -70,6 +70,7 @@
 | 409 | `PUBLISHED_STAGE` | 공개된 맵을 수정하려 함 |
 | 409 | `OPERATION_HAS_STAGES` | 스테이지가 남아 있는 작전을 삭제하려 함 |
 | 409 | `LAYER_HAS_OPERATIONS` | 작전이 남아 있는 레이어를 삭제하려 함 |
+| 429 | `MESSAGE_SPAM` | 메시지 도배 (3초 안에 5번째 메시지). 조금 기다리면 다시 보낼 수 있다 |
 | 409 | `DUPLICATE_VALUE` | 관리자 등록·수정에서 겹칠 수 없는 값이 겹침 (작전 이름·순서, 같은 작전의 스테이지 번호, 도감 이름, 아이템 이름) |
 | 500 | `INTERNAL_ERROR` | 서버 오류 |
 
@@ -113,7 +114,7 @@
 | 상점 | GET | `/items` | 판매 아이템 목록 | SHOP-01 |
 |  | POST | `/items/{itemId}/purchase` | 아이템 구매 | SHOP-02~05 |
 |  | GET | `/users/me/items` | 내 보유 아이템 | SHOP-06 |
-| 우편 | GET | `/mails` | 우편 목록 | MAIL-01 |
+| 메일 | GET | `/mails` | 메일 목록 | MAIL-01 |
 |  | POST | `/mails/{mailId}/claim` | 보상 받기 | MAIL-02, 04 |
 |  | POST | `/mails/claim-all` | 보상 모두 받기 | MAIL-03 |
 | 친구 | GET | `/friends` | 친구 목록 | FRIEND-07 |
@@ -227,7 +228,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### DELETE `/users/me`
 
-회원 탈퇴. 탈퇴하면 프로필, 기록, 아이템, 친구, 메시지, 우편, 내가 만든 맵이 함께 삭제된다. 신고 기록은 남고 신고자와 대상은 NULL이 된다.
+회원 탈퇴. 탈퇴하면 프로필, 기록, 아이템, 친구, 메시지, 메일, 내가 만든 맵이 함께 삭제된다. 신고 기록은 남고 신고자와 대상은 NULL이 된다.
 
 **Request**
 ```json
@@ -414,7 +415,8 @@ Redis에 저장된 Refresh Token을 지운다.
   "hiddenFound": true,
   "encounteredGuidebookIds": [3, 7],
   "unstableCount": 0,
-  "rewinds": 2
+  "rewinds": 2,
+  "parAchieved": true
 }
 ```
 
@@ -422,16 +424,18 @@ Redis에 저장된 Refresh Token을 지운다.
 | --- | --- |
 | cleared | 필수 |
 | moves | 1~9999. **구간 최고 기록의 합** ([map-data.md 3.3](map-data.md#33-체크포인트-checkpoint)). 체크포인트가 없는 맵은 쓴 턴 수와 같다. `cleared`가 `true`일 때만 기록에 반영한다 |
-| hiddenFound | **★3 조건 달성** 여부 (이름은 처음 조건이던 숨겨진 요소에서 왔다. 조건은 맵의 `stars.bonus`, [map-data.md 3.4](map-data.md#34-별-조건)). 기본값 `false`. `cleared`가 `true`일 때만 반영한다 |
+| hiddenFound | **★3 조건 달성** 여부 (조건은 맵의 `stars.star3`, 게임이 판정, [map-data.md 3.4](map-data.md#34-별-조건)). 기본값 `false`. `cleared`가 `true`이고 별 수가 3일 때만 반영한다 |
 | encounteredGuidebookIds | 이번 판에서 만난 이상 개체의 도감 ID. 클리어하지 못해도 해금한다 |
 | unstableCount | 0~999, 기본값 `0`. 불안정 체크포인트(출구 포함) 수. 별 2 판정에 쓴다 |
 | rewinds | 0 이상, 선택. 워프한 횟수 (통계용, 지금은 저장하지 않는다) |
+| parAchieved | 선택. **★2 조건 달성** 여부 (조건은 맵의 `stars.star2`, 게임이 판정). 없으면(예전 게임 버전) `unstableCount <= stars.maxUnstable`로 서버가 판정한다. `cleared`가 `true`이고 별 수가 2 이상일 때만 반영한다 |
 
 **별 판정** ([map-data.md 3.4](map-data.md#34-별-조건))
 - 별 1 `clear`: 클리어
-- 별 2 `par`: `unstableCount <= map_data.stars.maxUnstable` (없거나 잘못된 값이면 0). 한 번 달성하면 `user_stages.is_stable_cleared`에 남는다. 필드 이름 `par`는 호환을 위해 그대로 둔다 (예전 기준은 "최소 기록 <= parMoves")
-- 별 3 `hidden`: `hiddenFound` (★3 조건은 맵마다 다르고 게임이 판정한다: 숨겨진 요소 모두 수집 또는 컴퓨터 시간 안에 복구). 필드 이름 `hidden`은 호환을 위해 그대로 둔다
-- 튜토리얼은 별 1만 있다
+- 별 수 `max`: 튜토리얼 1, 그 밖에는 `map_data.stars.count` (1~3, 없거나 잘못되면 3). 별 수보다 높은 별은 저장하지 않고 세지도 않는다
+- 별 2 `par`: `parAchieved` (없으면 `unstableCount <= map_data.stars.maxUnstable`). 한 번 달성하면 `user_stages.is_stable_cleared`에 남는다
+- 별 3 `hidden`: `hiddenFound`. 한 번 달성하면 `user_stages.is_hidden_found`에 남는다
+- ★2·★3의 조건(불안정 수, 기록, 워프, 데이터 파편, 컴퓨터 시간, 이상 개체)은 맵마다 다르고 **게임이 판정**한다. 필드 이름 `par`·`hidden`은 호환을 위해 그대로 둔다
 
 **처리 순서** (하나의 트랜잭션)
 1. `user_stages` 행이 없으면 만들고, `play_count`를 1 늘린다.
@@ -623,7 +627,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
-## 7. 상점 / 우편
+## 7. 상점 / 메일
 
 ### GET `/items?type={SKIN|THEME}`
 
@@ -671,7 +675,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/mails?page=0&size=20`
 
-만료되지 않은 우편을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 우편도 `claimed: true`로 남아 있다.
+만료되지 않은 메일을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 메일도 `claimed: true`로 남아 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -694,7 +698,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ### POST `/mails/{mailId}/claim`
 
 **처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템의 **현재 가격**만큼 코인으로 바꿔서 준다.
-- 잠금 순서는 우편 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
+- 잠금 순서는 메일 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
 
 **Response** `200 OK`
 ```json
@@ -710,13 +714,13 @@ Redis에 저장된 Refresh Token을 지운다.
 - `rewardItem`: 실제로 지급된 아이템 `{ "itemId", "itemType", "quantity" }`. 첨부가 없거나 코인으로 바꿨다면 `null`
 - `totalCoin`: 받은 뒤 내 코인
 
-**Error**: `403 FORBIDDEN` (내 우편이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
+**Error**: `403 FORBIDDEN` (내 메일이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
 
 ---
 
 ### POST `/mails/claim-all`
 
-받을 수 있는 우편을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 우편에 있으면 첫 우편에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
+받을 수 있는 메일을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 메일에 있으면 첫 메일에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
 
 **Response** `200 OK`
 ```json
@@ -847,13 +851,14 @@ Redis에 저장된 Refresh Token을 지운다.
 { "receiverId": 12, "content": "18턴!" }
 ```
 - `content`: 1~500자
+- 도배 제한: 최근 3초 안에 보낸 메시지(받는 사람 상관없이)가 4개면 5번째는 막는다. 막힌 메시지는 세지 않으므로 가장 오래된 메시지가 3초를 지나면 다시 보낼 수 있다
 
 **Response** `201 Created`
 ```json
 { "messageId": 89, "createdAt": "2026-11-20T03:13:00Z" }
 ```
 
-**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다)
+**Error**: `400 INVALID_INPUT` (자기 자신, 빈 내용, 500자 초과), `409 NOT_FRIEND` (친구가 아님. 없는 사용자도 같은 오류로 응답해 존재 여부를 드러내지 않는다), `429 MESSAGE_SPAM` (도배)
 
 ---
 
@@ -994,7 +999,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |
 | POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price`. 항상 판매 중으로 등록 |
 | PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`(필수). 가진 사용자가 있는 아이템은 `itemType`을 바꿀 수 없다(400). 삭제 API는 두지 않는다 |
-| POST | `/admin/mails` | 우편 발송 | 아래 참고 |
+| POST | `/admin/mails` | 메일 발송 | 아래 참고 |
 | GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 | GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt`, `suspendedUntil`(null이면 정지 아님, `9999-12-31T23:59:59Z`면 영구, 지난 시각이면 이미 풀림), `suspendReason` |

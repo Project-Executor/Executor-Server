@@ -154,7 +154,7 @@ public class AuthService {
 
     /**
      * 회원 탈퇴. 비밀번호를 다시 확인한 뒤 accounts 행을 지운다.
-     * 프로필·기록·아이템·친구·메시지·우편·제작 맵은 DB의 ON DELETE CASCADE로 함께 지워지고,
+     * 프로필·기록·아이템·친구·메시지·메일·제작 맵은 DB의 ON DELETE CASCADE로 함께 지워지고,
      * 신고 기록은 ON DELETE SET NULL로 남는다.
      *
      * @throws BusinessException INVALID_CREDENTIALS(비밀번호 불일치), UNAUTHORIZED(이미 없는 계정)

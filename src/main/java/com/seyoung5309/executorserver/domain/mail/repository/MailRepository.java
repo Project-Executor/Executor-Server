@@ -16,7 +16,7 @@ import java.util.Optional;
 
 public interface MailRepository extends JpaRepository<Mail, Long> {
 
-    /** 만료되지 않은 내 우편 (첨부 아이템 포함, 정렬은 Pageable로) */
+    /** 만료되지 않은 내 메일 (첨부 아이템 포함, 정렬은 Pageable로) */
     @EntityGraph(attributePaths = "rewardItem")
     @Query(value = """
             select m from Mail m
@@ -27,12 +27,12 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
             """)
     Page<Mail> findVisible(@Param("userId") Long userId, @Param("now") Instant now, Pageable pageable);
 
-    /** 우편 한 통 (첨부 아이템 포함) */
+    /** 메일 한 통 (첨부 아이템 포함) */
     @EntityGraph(attributePaths = "rewardItem")
     @Query("select m from Mail m where m.id = :mailId")
     Optional<Mail> findWithItemById(@Param("mailId") Long mailId);
 
-    /** 지금 받을 수 있는 내 우편 (첨부 아이템 포함, 오래된 순) */
+    /** 지금 받을 수 있는 내 메일 (첨부 아이템 포함, 오래된 순) */
     @EntityGraph(attributePaths = "rewardItem")
     @Query("""
             select m from Mail m
@@ -43,8 +43,8 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
     List<Mail> findClaimable(@Param("userId") Long userId, @Param("now") Instant now);
 
     /**
-     * 아직 받지 않았고 만료되지 않은 우편만 수령 처리한다 (조건부 UPDATE).
-     * 같은 우편을 동시에 여러 번 받으려 해도 한 번만 1이 나온다.
+     * 아직 받지 않았고 만료되지 않은 메일만 수령 처리한다 (조건부 UPDATE).
+     * 같은 메일을 동시에 여러 번 받으려 해도 한 번만 1이 나온다.
      *
      * @return 수령 처리했으면 1, 이미 받았거나 만료됐으면 0
      */
@@ -56,7 +56,7 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
             """)
     int markClaimed(@Param("mailId") Long mailId, @Param("userId") Long userId, @Param("now") Instant now);
 
-    /** 지정한 사용자들에게 같은 우편을 한 통씩 보낸다 (없는 사용자 ID는 건너뛴다) */
+    /** 지정한 사용자들에게 같은 메일을 한 통씩 보낸다 (없는 사용자 ID는 건너뛴다) */
     @Modifying(flushAutomatically = true)
     @Query(value = """
             INSERT INTO mails (receiver_id, title, content, reward_coin, reward_item_id, reward_item_quantity,
@@ -70,7 +70,7 @@ public interface MailRepository extends JpaRepository<Mail, Long> {
                @Param("rewardItemId") Long rewardItemId, @Param("rewardItemQuantity") int rewardItemQuantity,
                @Param("expiresAt") Instant expiresAt, @Param("now") Instant now);
 
-    /** 모든 사용자에게 같은 우편을 한 통씩 보낸다 */
+    /** 모든 사용자에게 같은 메일을 한 통씩 보낸다 */
     @Modifying(flushAutomatically = true)
     @Query(value = """
             INSERT INTO mails (receiver_id, title, content, reward_coin, reward_item_id, reward_item_quantity,

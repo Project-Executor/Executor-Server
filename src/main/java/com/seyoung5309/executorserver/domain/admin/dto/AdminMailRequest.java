@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 우편 발송.
+ * 메일 발송.
  *
  * @param receiverIds        받는 사용자 ID. toAll이 true면 무시한다
  * @param toAll              true면 모든 사용자에게 한 통씩 보낸다 (기본 false)

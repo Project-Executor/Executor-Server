@@ -137,7 +137,7 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
 
     /**
      * 공식 스테이지 기준 클리어 수와 별 개수.
-     * 별 1 = 클리어, 별 2 = isStableCleared, 별 3 = 숨겨진 요소. 튜토리얼은 별 1만 센다.
+     * 별 1 = 클리어, 별 2 = isStableCleared(별 2 조건), 별 3 = isHiddenFound(별 3 조건). 튜토리얼은 별 1만 센다.
      */
     @Query("""
             select new com.seyoung5309.executorserver.domain.stage.repository.StarSummary(

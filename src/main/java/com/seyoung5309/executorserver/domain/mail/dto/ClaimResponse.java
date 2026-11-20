@@ -3,7 +3,7 @@ package com.seyoung5309.executorserver.domain.mail.dto;
 import com.seyoung5309.executorserver.domain.item.entity.ItemType;
 
 /**
- * 우편 한 통을 받은 결과.
+ * 메일 한 통을 받은 결과.
  *
  * @param rewardCoin    첨부 코인
  * @param convertedCoin 이미 가진 스킨·테마를 코인으로 바꾼 금액 (바꾼 게 없으면 0)

@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** 관리자 우편 발송. 받는 사람 수와 상관없이 INSERT ... SELECT 한 문장으로 넣는다. */
+/** 관리자 메일 발송. 받는 사람 수와 상관없이 INSERT ... SELECT 한 문장으로 넣는다. */
 @Service
 @RequiredArgsConstructor
 @Transactional

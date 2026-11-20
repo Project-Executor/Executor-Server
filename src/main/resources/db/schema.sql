@@ -33,7 +33,7 @@
 --  첫 클리어 보상 : UPDATE user_stages SET first_cleared_at = NOW()
 --                  WHERE user_id = ? AND stage_id = ? AND first_cleared_at IS NULL;
 --                  -> 영향받은 행이 1일 때만 같은 트랜잭션에서 코인 지급
---  우편 수령      : UPDATE mails SET claimed_at = NOW()
+--  메일 수령      : UPDATE mails SET claimed_at = NOW()
 --                  WHERE id = ? AND receiver_id = ? AND claimed_at IS NULL
 --                    AND (expires_at IS NULL OR expires_at > NOW());
 --  코인 차감      : UPDATE users SET coin = coin - ? WHERE user_id = ? AND coin >= ?;
@@ -194,8 +194,8 @@ CREATE TABLE operations (
 
 -- 스테이지 (공식 스테이지 + 사용자 제작 맵)
 --  - creator_id IS NULL  -> 공식 스테이지
---  - 맵 구성(타일, 장애물, 열쇠, NPC, 대화/선택지, 추격 봇 미니게임, 숨겨진 버그/피스, 힌트)은 map_data(JSON)에 저장
---  - 별 조건: 1 = 클리어, 2 = best_moves <= par_moves, 3 = 숨겨진 버그 처치 또는 피스 수집
+--  - 맵 구성(타일, 장애물, 열쇠, NPC, 대화/선택지, 추격 봇 미니게임, 데이터 파편, 힌트)은 map_data(JSON)에 저장
+--  - 별 조건: 1 = 클리어, 2 = best_moves <= par_moves, 3 = 별 3 조건 (기본: 데이터 파편 모두 수집, 맵마다 다름)
 CREATE TABLE stages (
     id            BIGINT         NOT NULL AUTO_INCREMENT COMMENT '스테이지 ID',
     operation_id  BIGINT             NULL                COMMENT '작전 ID (사용자 맵은 NULL)',
@@ -229,13 +229,13 @@ CREATE TABLE stages (
 -- 사용자의 스테이지 기록 (첫 플레이 시 INSERT ... ON DUPLICATE KEY UPDATE 로 생성)
 --  - 클리어 여부 = first_cleared_at IS NOT NULL   (별 1)
 --  - 기준 턴 달성 = best_moves <= stages.par_moves (별 2, 계산으로 구하므로 컬럼 없음)
---  - 숨겨진 요소   = is_hidden_found              (별 3, 한 번 달성하면 유지)
+--  - 데이터 파편   = is_hidden_found              (별 3, 한 번 달성하면 유지)
 CREATE TABLE user_stages (
     id                BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
     user_id           BIGINT     NOT NULL                COMMENT '사용자 ID',
     stage_id          BIGINT     NOT NULL                COMMENT '스테이지 ID',
     best_moves        INT            NULL                COMMENT '클리어 시 최소 행동 횟수 (미클리어 NULL, 친구 기록 비교용)',
-    is_hidden_found   BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '숨겨진 버그 처치 / 피스 수집 달성 여부',
+    is_hidden_found   BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '별 3 조건 달성 여부 (기본 조건: 데이터 파편 모두 수집)',
     is_stable_cleared BOOLEAN    NOT NULL DEFAULT FALSE  COMMENT '별 2: 불안정 체크포인트가 허용 개수(map_data.stars.maxUnstable) 이하로 클리어한 적 있음',
     play_count        INT        NOT NULL DEFAULT 0      COMMENT '도전 횟수',
     first_cleared_at  DATETIME       NULL                COMMENT '첫 클리어 날짜 (NULL -> 값 전환 시 보상 지급)',
@@ -314,12 +314,12 @@ CREATE TABLE user_guidebooks (
 
 
 -- =====================================================================
--- 5. 상점 / 우편
+-- 5. 상점 / 메일
 -- =====================================================================
 
 -- 사용자의 보유 아이템
 --  - 구매 시 users.coin 차감과 INSERT를 하나의 트랜잭션으로 처리
---  - quantity = 1 고정, 이미 보유 중이면 구매 불가 (우편 보상이면 코인으로 환산)
+--  - quantity = 1 고정, 이미 보유 중이면 구매 불가 (메일 보상이면 코인으로 환산)
 CREATE TABLE user_items (
     id           BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
     user_id      BIGINT     NOT NULL                COMMENT '사용자 ID',
@@ -339,9 +339,9 @@ CREATE TABLE user_items (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 보유 아이템';
 
 
--- 우편 (시스템 -> 사용자 보상)
+-- 메일 (시스템 -> 사용자 보상)
 CREATE TABLE mails (
-    id                    BIGINT         NOT NULL AUTO_INCREMENT COMMENT '우편 ID',
+    id                    BIGINT         NOT NULL AUTO_INCREMENT COMMENT '메일 ID',
     receiver_id           BIGINT         NOT NULL                COMMENT '받는 사용자',
     title                 VARCHAR(100)   NOT NULL                COMMENT '제목',
     content               TEXT               NULL                COMMENT '내용',
@@ -361,7 +361,7 @@ CREATE TABLE mails (
         FOREIGN KEY (receiver_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_mails_item
         FOREIGN KEY (reward_item_id) REFERENCES items (id) ON DELETE RESTRICT
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '우편';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '메일';
 
 
 -- =====================================================================

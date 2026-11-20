@@ -33,8 +33,8 @@ public enum ErrorCode {
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     NOT_ENOUGH_COIN(HttpStatus.CONFLICT, "코인이 부족합니다."),
     ALREADY_OWNED(HttpStatus.CONFLICT, "이미 보유한 아이템입니다."),
-    ALREADY_CLAIMED(HttpStatus.CONFLICT, "이미 수령한 우편입니다."),
-    MAIL_EXPIRED(HttpStatus.CONFLICT, "만료된 우편입니다."),
+    ALREADY_CLAIMED(HttpStatus.CONFLICT, "이미 수령한 메일입니다."),
+    MAIL_EXPIRED(HttpStatus.CONFLICT, "만료된 메일입니다."),
     ALREADY_FRIEND(HttpStatus.CONFLICT, "이미 친구입니다."),
     REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "대기 중인 친구 요청이 이미 있습니다."),
     REQUEST_ALREADY_HANDLED(HttpStatus.CONFLICT, "이미 처리된 친구 요청입니다."),
@@ -44,6 +44,9 @@ public enum ErrorCode {
     OPERATION_HAS_STAGES(HttpStatus.CONFLICT, "스테이지가 남아 있는 작전은 삭제할 수 없습니다."),
     LAYER_HAS_OPERATIONS(HttpStatus.CONFLICT, "작전이 남아 있는 레이어는 삭제할 수 없습니다."),
     DUPLICATE_VALUE(HttpStatus.CONFLICT, "이미 사용 중인 값입니다."),
+
+    // 429
+    MESSAGE_SPAM(HttpStatus.TOO_MANY_REQUESTS, "메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 보내 주세요."),
 
     // 500
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

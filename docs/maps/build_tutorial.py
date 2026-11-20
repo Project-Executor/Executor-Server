@@ -6,7 +6,7 @@ ASCII 그림으로 맵을 정의하고, map_data JSON(관리자 등록 형식)�
 실행: python docs/maps/build_tutorial.py  (결과: docs/maps/tutorial/stage-N.json)
 규칙과 필드 설명은 docs/map-data.md 참고. 맵을 고치면 이 파일의 STAGES를 고치고 다시 실행한다.
 
-그림 기호: # 벽, . 바닥, P 시작, E 출구, C 밀 수 있는 상자, B 부술 수 있는 블록, K 열쇠, D 잠긴 문, N 인물
+그림 기호: # 벽, . 바닥, P 시작, E 출구, C 밀 수 있는 상자, B 부술 수 있는 방화벽, K 열쇠, D 잠긴 문, N 인물
 """
 import heapq
 import math
@@ -67,7 +67,7 @@ STAGES = [
         "guides": [
             {"on": "start", "text": "앞에 장애물이 있을 때 그 방향으로 이동하면, 턴을 소모해서 장애물을 밀거나 부술 수 있습니다."},
             {"on": "near", "target": "crate1", "text": "상자는 밀 수 있습니다. 상자를 아래쪽 빈칸까지 밀어 길을 여십시오."},
-            {"on": "near", "target": "block1", "text": "금이 간 블록은 부술 수 있습니다. 여러 번 부딪혀야 하는 블록도 있습니다."},
+            {"on": "near", "target": "block1", "text": "방화벽은 부딪혀서 부술 수 있습니다. 여러 번 부딪혀야 하는 방화벽도 있습니다."},
         ],
     },
     {
