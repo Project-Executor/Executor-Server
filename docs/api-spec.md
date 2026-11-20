@@ -60,8 +60,8 @@
 | 409 | `DUPLICATE_NICKNAME` | 이미 쓰고 있는 닉네임 |
 | 409 | `NOT_ENOUGH_COIN` | 코인 부족 |
 | 409 | `ALREADY_OWNED` | 이미 가지고 있는 스킨·테마 |
-| 409 | `ALREADY_CLAIMED` | 이미 받은 우편 |
-| 409 | `MAIL_EXPIRED` | 만료된 우편 |
+| 409 | `ALREADY_CLAIMED` | 이미 받은 메일 |
+| 409 | `MAIL_EXPIRED` | 만료된 메일 |
 | 409 | `ALREADY_FRIEND` | 이미 친구 |
 | 409 | `REQUEST_ALREADY_EXISTS` | 대기 중인 친구 요청이 이미 있음 |
 | 409 | `REQUEST_ALREADY_HANDLED` | 이미 수락·거절된 친구 요청 |
@@ -114,7 +114,7 @@
 | 상점 | GET | `/items` | 판매 아이템 목록 | SHOP-01 |
 |  | POST | `/items/{itemId}/purchase` | 아이템 구매 | SHOP-02~05 |
 |  | GET | `/users/me/items` | 내 보유 아이템 | SHOP-06 |
-| 우편 | GET | `/mails` | 우편 목록 | MAIL-01 |
+| 메일 | GET | `/mails` | 메일 목록 | MAIL-01 |
 |  | POST | `/mails/{mailId}/claim` | 보상 받기 | MAIL-02, 04 |
 |  | POST | `/mails/claim-all` | 보상 모두 받기 | MAIL-03 |
 | 친구 | GET | `/friends` | 친구 목록 | FRIEND-07 |
@@ -228,7 +228,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### DELETE `/users/me`
 
-회원 탈퇴. 탈퇴하면 프로필, 기록, 아이템, 친구, 메시지, 우편, 내가 만든 맵이 함께 삭제된다. 신고 기록은 남고 신고자와 대상은 NULL이 된다.
+회원 탈퇴. 탈퇴하면 프로필, 기록, 아이템, 친구, 메시지, 메일, 내가 만든 맵이 함께 삭제된다. 신고 기록은 남고 신고자와 대상은 NULL이 된다.
 
 **Request**
 ```json
@@ -627,7 +627,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
-## 7. 상점 / 우편
+## 7. 상점 / 메일
 
 ### GET `/items?type={SKIN|THEME}`
 
@@ -675,7 +675,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### GET `/mails?page=0&size=20`
 
-만료되지 않은 우편을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 우편도 `claimed: true`로 남아 있다.
+만료되지 않은 메일을 최신순으로 조회한다(`size` 1~50, 기본 20). 받은 메일도 `claimed: true`로 남아 있다.
 
 **Response** `200 OK`: `content` 항목 형식
 ```json
@@ -698,7 +698,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ### POST `/mails/{mailId}/claim`
 
 **처리**: `claimed_at IS NULL`이고 만료되지 않았다는 조건으로 UPDATE한다. 바뀐 행이 1개일 때만 보상을 지급한다. 이미 가진 스킨이나 테마가 첨부되어 있으면 그 아이템의 **현재 가격**만큼 코인으로 바꿔서 준다.
-- 잠금 순서는 우편 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
+- 잠금 순서는 메일 → 프로필(코인) → 보유 아이템. 상점 구매와 같은 방향이라 같은 사용자의 구매·수령이 동시에 와도 교착 상태가 없다.
 
 **Response** `200 OK`
 ```json
@@ -714,13 +714,13 @@ Redis에 저장된 Refresh Token을 지운다.
 - `rewardItem`: 실제로 지급된 아이템 `{ "itemId", "itemType", "quantity" }`. 첨부가 없거나 코인으로 바꿨다면 `null`
 - `totalCoin`: 받은 뒤 내 코인
 
-**Error**: `403 FORBIDDEN` (내 우편이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
+**Error**: `403 FORBIDDEN` (내 메일이 아님), `404 NOT_FOUND`, `409 ALREADY_CLAIMED`, `409 MAIL_EXPIRED`
 
 ---
 
 ### POST `/mails/claim-all`
 
-받을 수 있는 우편을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 우편에 있으면 첫 우편에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
+받을 수 있는 메일을 오래된 순으로 모두 받는다. 받을 게 없으면 `claimedCount: 0`. 같은 스킨이 여러 메일에 있으면 첫 메일에서 아이템을 받고 나머지는 코인으로 바뀐다. `rewardItems`는 같은 아이템의 수량을 합친 값(아이템 ID 순).
 
 **Response** `200 OK`
 ```json
@@ -999,7 +999,7 @@ Redis에 저장된 Refresh Token을 지운다.
 | GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |
 | POST | `/admin/items` | 아이템 등록 | `name`, `image`, `description`, `itemType`, `price`. 항상 판매 중으로 등록 |
 | PUT | `/admin/items/{id}` | 아이템 수정 | 등록 항목 + `isActive`(필수). 가진 사용자가 있는 아이템은 `itemType`을 바꿀 수 없다(400). 삭제 API는 두지 않는다 |
-| POST | `/admin/mails` | 우편 발송 | 아래 참고 |
+| POST | `/admin/mails` | 메일 발송 | 아래 참고 |
 | GET | `/admin/reports?status=RECEIVED&page=0` | 신고 목록 | 최신순. `status`를 빼면 전체(대소문자 무시). 항목: `reportId`, `category {categoryId, name}`, `reporter`·`targetUser`(UserSummary, 탈퇴했으면 null), `targetStage {stageId, title, official}`(삭제됐으면 null), `title`, `comment`, `status`, `createdAt`, `handledAt` |
 | PATCH | `/admin/reports/{id}` | 신고 상태 변경 | `{ "status": "DONE" }`. 앞으로만 진행(`RECEIVED` → `IN_PROGRESS` → `DONE`, `RECEIVED` → `DONE` 가능), 되돌리면 `400`. 같은 상태면 그대로. `DONE`이면 `handledAt`을 기록. 응답 `{ reportId, status, handledAt }` |
 | GET | `/admin/users?keyword=&role=ADMIN&page=0` | 유저 목록·검색 | 최근 가입순(size 1~50, 기본 20). `keyword`는 닉네임·이메일 일부 또는 사용자 ID(숫자면 ID로도 찾음), 빼면 전체. `role`(`USER`·`ADMIN`, 대소문자 무시)을 빼면 전체. 관리자 본인도 나온다. 항목: `userId`, `email`, `nickname`(정하기 전이면 null), `role`, `coin`, `createdAt`, `suspendedUntil`(null이면 정지 아님, `9999-12-31T23:59:59Z`면 영구, 지난 시각이면 이미 풀림), `suspendReason` |

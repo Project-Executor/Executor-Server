@@ -7,7 +7,7 @@ import com.seyoung5309.executorserver.domain.mail.entity.Mail;
 import java.time.Instant;
 
 /**
- * 우편 목록의 우편 한 통.
+ * 메일 목록의 메일 한 통.
  *
  * @param rewardItem 첨부 아이템이 없으면 null
  * @param expiresAt  null이면 무기한

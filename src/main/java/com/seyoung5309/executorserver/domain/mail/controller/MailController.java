@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "우편", description = "시스템이 보낸 보상 우편")
+@Tag(name = "메일", description = "시스템이 보낸 보상 메일")
 @RestController
 @RequestMapping("/api/mails")
 @RequiredArgsConstructor
@@ -21,7 +21,7 @@ public class MailController {
 
     private final MailService mailService;
 
-    @Operation(summary = "우편 목록", description = "만료되지 않은 우편, 최신순(size 1~50, 기본 20). 받은 우편도 claimed = true로 나온다.")
+    @Operation(summary = "메일 목록", description = "만료되지 않은 메일, 최신순(size 1~50, 기본 20). 받은 메일도 claimed = true로 나온다.")
     @GetMapping
     public PageResponse<MailResponse> getMails(
             @LoginUser Long userId,
@@ -33,7 +33,7 @@ public class MailController {
         return mailService.getMails(userId, page, size);
     }
 
-    @Operation(summary = "우편 받기",
+    @Operation(summary = "메일 받기",
             description = "한 번만 받을 수 있다(409 ALREADY_CLAIMED), 만료되면 409 MAIL_EXPIRED. "
                     + "이미 가진 스킨·테마는 가격만큼 코인으로 바꿔 준다(convertedCoin).")
     @PostMapping("/{mailId}/claim")
@@ -41,7 +41,7 @@ public class MailController {
         return mailService.claim(userId, mailId);
     }
 
-    @Operation(summary = "우편 모두 받기", description = "받을 수 있는 우편을 오래된 순으로 모두 받는다. 없으면 claimedCount = 0.")
+    @Operation(summary = "메일 모두 받기", description = "받을 수 있는 메일을 오래된 순으로 모두 받는다. 없으면 claimedCount = 0.")
     @PostMapping("/claim-all")
     public ClaimAllResponse claimAll(@LoginUser Long userId) {
         return mailService.claimAll(userId);

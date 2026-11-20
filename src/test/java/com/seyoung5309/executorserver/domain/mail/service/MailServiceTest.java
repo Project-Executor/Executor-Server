@@ -52,7 +52,7 @@ class MailServiceTest {
     }
 
     @Test
-    void 코인만_있는_우편은_코인만_더한다() {
+    void 코인만_있는_메일은_코인만_더한다() {
         given(mail(15L, ME, 100, null, 0));
 
         ClaimResponse response = service.claim(ME, 15L);
@@ -89,7 +89,7 @@ class MailServiceTest {
     }
 
     @Test
-    void 남의_우편은_FORBIDDEN이고_수령_처리하지_않는다() {
+    void 남의_메일은_FORBIDDEN이고_수령_처리하지_않는다() {
         given(mail(15L, 2L, 100, null, 0));
 
         assertErrorCode(() -> service.claim(ME, 15L), ErrorCode.FORBIDDEN);
@@ -97,14 +97,14 @@ class MailServiceTest {
     }
 
     @Test
-    void 없는_우편은_NOT_FOUND() {
+    void 없는_메일은_NOT_FOUND() {
         when(mailRepository.findWithItemById(99L)).thenReturn(Optional.empty());
 
         assertErrorCode(() -> service.claim(ME, 99L), ErrorCode.NOT_FOUND);
     }
 
     @Test
-    void 이미_받은_우편은_ALREADY_CLAIMED이고_보상을_주지_않는다() {
+    void 이미_받은_메일은_ALREADY_CLAIMED이고_보상을_주지_않는다() {
         Mail claimed = mail(15L, ME, 100, null, 0);
         ReflectionTestUtils.setField(claimed, "claimedAt", NOW.minusSeconds(10));
         given(claimed);
@@ -115,7 +115,7 @@ class MailServiceTest {
     }
 
     @Test
-    void 만료된_우편은_MAIL_EXPIRED() {
+    void 만료된_메일은_MAIL_EXPIRED() {
         Mail expired = mail(15L, ME, 100, null, 0);
         ReflectionTestUtils.setField(expired, "expiresAt", NOW);
         given(expired);
@@ -151,7 +151,7 @@ class MailServiceTest {
     }
 
     @Test
-    void 받을_우편이_없으면_0통() {
+    void 받을_메일이_없으면_0통() {
         when(mailRepository.findClaimable(ME, NOW)).thenReturn(List.of());
 
         assertThat(service.claimAll(ME)).isEqualTo(new ClaimAllResponse(0, 0, 0, List.of(), 750));

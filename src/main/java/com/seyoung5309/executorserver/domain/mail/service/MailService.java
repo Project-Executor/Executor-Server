@@ -24,10 +24,10 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * 우편 조회와 수령.
+ * 메일 조회와 수령.
  * <p>
  * 수령은 "아직 받지 않았고 만료되지 않음" 조건부 UPDATE가 1행을 바꿨을 때만 보상을 준다. 그래서 동시에 여러 번 받아도 한 번만 지급된다.
- * 잠금 순서는 우편 -> 프로필(코인) -> 보유 아이템으로, 상점 구매(프로필 -> 보유 아이템)와 같은 방향이라 교착 상태가 생기지 않는다.
+ * 잠금 순서는 메일 -> 프로필(코인) -> 보유 아이템으로, 상점 구매(프로필 -> 보유 아이템)와 같은 방향이라 교착 상태가 생기지 않는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,7 +41,7 @@ public class MailService {
     private final UserItemRepository userItemRepository;
     private final Clock clock;
 
-    /** 만료되지 않은 내 우편 (최신순). 받은 우편도 claimed = true로 남아 있다 */
+    /** 만료되지 않은 내 메일 (최신순). 받은 메일도 claimed = true로 남아 있다 */
     @Transactional(readOnly = true)
     public PageResponse<MailResponse> getMails(Long userId, int page, int size) {
         return PageResponse.of(
@@ -50,15 +50,15 @@ public class MailService {
     }
 
     /**
-     * 우편 한 통의 보상을 받는다.
+     * 메일 한 통의 보상을 받는다.
      *
-     * @throws BusinessException NOT_FOUND, FORBIDDEN(내 우편이 아님), ALREADY_CLAIMED, MAIL_EXPIRED
+     * @throws BusinessException NOT_FOUND, FORBIDDEN(내 메일이 아님), ALREADY_CLAIMED, MAIL_EXPIRED
      */
     public ClaimResponse claim(Long userId, Long mailId) {
         Mail mail = mailRepository.findWithItemById(mailId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "우편을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "메일을 찾을 수 없습니다."));
         if (!mail.getReceiver().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "내 우편이 아닙니다.");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "내 메일이 아닙니다.");
         }
         Instant now = clock.instant();
         if (mailRepository.markClaimed(mailId, userId, now) == 0) {
@@ -70,8 +70,8 @@ public class MailService {
     }
 
     /**
-     * 받을 수 있는 우편을 모두 받는다 (오래된 우편부터). 받을 게 없으면 claimedCount = 0.
-     * 같은 스킨이 여러 우편에 있으면 첫 우편에서 아이템을 받고, 나머지는 코인으로 바뀐다.
+     * 받을 수 있는 메일을 모두 받는다 (오래된 메일부터). 받을 게 없으면 claimedCount = 0.
+     * 같은 스킨이 여러 메일에 있으면 첫 메일에서 아이템을 받고, 나머지는 코인으로 바뀐다.
      */
     public ClaimAllResponse claimAll(Long userId) {
         Instant now = clock.instant();

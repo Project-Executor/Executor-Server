@@ -10,7 +10,7 @@ import com.seyoung5309.executorserver.global.jpa.CreatedAtSeconds;
 
 import java.time.Instant;
 
-/** 우편 (시스템 -> 사용자 보상) */
+/** 메일 (시스템 -> 사용자 보상) */
 @Entity
 @Table(name = "mails")
 @Getter

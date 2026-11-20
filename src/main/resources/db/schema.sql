@@ -33,7 +33,7 @@
 --  첫 클리어 보상 : UPDATE user_stages SET first_cleared_at = NOW()
 --                  WHERE user_id = ? AND stage_id = ? AND first_cleared_at IS NULL;
 --                  -> 영향받은 행이 1일 때만 같은 트랜잭션에서 코인 지급
---  우편 수령      : UPDATE mails SET claimed_at = NOW()
+--  메일 수령      : UPDATE mails SET claimed_at = NOW()
 --                  WHERE id = ? AND receiver_id = ? AND claimed_at IS NULL
 --                    AND (expires_at IS NULL OR expires_at > NOW());
 --  코인 차감      : UPDATE users SET coin = coin - ? WHERE user_id = ? AND coin >= ?;
@@ -314,12 +314,12 @@ CREATE TABLE user_guidebooks (
 
 
 -- =====================================================================
--- 5. 상점 / 우편
+-- 5. 상점 / 메일
 -- =====================================================================
 
 -- 사용자의 보유 아이템
 --  - 구매 시 users.coin 차감과 INSERT를 하나의 트랜잭션으로 처리
---  - quantity = 1 고정, 이미 보유 중이면 구매 불가 (우편 보상이면 코인으로 환산)
+--  - quantity = 1 고정, 이미 보유 중이면 구매 불가 (메일 보상이면 코인으로 환산)
 CREATE TABLE user_items (
     id           BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',
     user_id      BIGINT     NOT NULL                COMMENT '사용자 ID',
@@ -339,9 +339,9 @@ CREATE TABLE user_items (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자의 보유 아이템';
 
 
--- 우편 (시스템 -> 사용자 보상)
+-- 메일 (시스템 -> 사용자 보상)
 CREATE TABLE mails (
-    id                    BIGINT         NOT NULL AUTO_INCREMENT COMMENT '우편 ID',
+    id                    BIGINT         NOT NULL AUTO_INCREMENT COMMENT '메일 ID',
     receiver_id           BIGINT         NOT NULL                COMMENT '받는 사용자',
     title                 VARCHAR(100)   NOT NULL                COMMENT '제목',
     content               TEXT               NULL                COMMENT '내용',
@@ -361,7 +361,7 @@ CREATE TABLE mails (
         FOREIGN KEY (receiver_id) REFERENCES accounts (id) ON DELETE CASCADE,
     CONSTRAINT fk_mails_item
         FOREIGN KEY (reward_item_id) REFERENCES items (id) ON DELETE RESTRICT
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '우편';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '메일';
 
 
 -- =====================================================================
