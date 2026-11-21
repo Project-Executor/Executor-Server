@@ -25,7 +25,7 @@
 --  3. stages: 공식 스테이지는 operation_id/stage_no NOT NULL + creator_id NULL,
 --             사용자 맵은 operation_id/stage_no NULL + creator_id NOT NULL + reward_coin = 0
 --  4. stages: 사용자 맵은 제작자가 직접 클리어한 기록(user_stages)이 있어야 is_public = TRUE 가능
---  5. users: equipped_*_id는 본인이 보유한 해당 종류(SKIN/THEME) 아이템만
+--  5. users: equipped_*_id는 본인이 보유한 해당 종류(SKIN/THEME/CURSOR/DELTA) 아이템만
 --  6. mails: reward_item_id가 NULL이면 reward_item_quantity = 0
 --  7. reports: 버그 제보·기타가 아니면 target_user_id / target_stage_id 중 하나 필수 (둘 다 지정 불가)
 --
@@ -67,7 +67,7 @@ CREATE TABLE items (
     name        VARCHAR(100)    NOT NULL                COMMENT '아이템 이름',
     image       VARCHAR(255)        NULL                COMMENT '아이템 이미지 경로',
     description VARCHAR(255)        NULL                COMMENT '아이템 설명',
-    item_type   ENUM('SKIN', 'THEME') NOT NULL          COMMENT 'SKIN: 캐릭터 스킨, THEME: 화면 테마',
+    item_type   ENUM('SKIN', 'THEME', 'CURSOR', 'DELTA') NOT NULL COMMENT 'SKIN: 캐릭터 스킨, THEME: 화면 테마, CURSOR: 터미널 커서, DELTA: 델타 꾸미기',
     price       INT             NOT NULL                COMMENT '가격 (코인)',
     is_active   BOOLEAN         NOT NULL DEFAULT TRUE   COMMENT '판매 중 여부 (삭제 대신 FALSE로)',
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
@@ -86,6 +86,8 @@ CREATE TABLE users (
     coin              INT           NOT NULL DEFAULT 0    COMMENT '보유 코인',
     equipped_skin_id  BIGINT            NULL              COMMENT '장착한 스킨 (NULL = 기본)',
     equipped_theme_id BIGINT            NULL              COMMENT '장착한 테마 (NULL = 기본)',
+    equipped_cursor_id BIGINT           NULL              COMMENT '장착한 커서 (NULL = 기본)',
+    equipped_delta_id BIGINT            NULL              COMMENT '장착한 델타 꾸미기 (NULL = 없음)',
 
     PRIMARY KEY (user_id),
     UNIQUE KEY uk_users_nickname (nickname),
@@ -95,7 +97,11 @@ CREATE TABLE users (
     CONSTRAINT fk_users_skin
         FOREIGN KEY (equipped_skin_id) REFERENCES items (id) ON DELETE SET NULL,
     CONSTRAINT fk_users_theme
-        FOREIGN KEY (equipped_theme_id) REFERENCES items (id) ON DELETE SET NULL
+        FOREIGN KEY (equipped_theme_id) REFERENCES items (id) ON DELETE SET NULL,
+    CONSTRAINT fk_users_cursor
+        FOREIGN KEY (equipped_cursor_id) REFERENCES items (id) ON DELETE SET NULL,
+    CONSTRAINT fk_users_delta
+        FOREIGN KEY (equipped_delta_id) REFERENCES items (id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자';
 
 

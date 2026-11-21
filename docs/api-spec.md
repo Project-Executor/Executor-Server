@@ -264,10 +264,12 @@ Redis에 저장된 Refresh Token을 지운다.
   "coin": 350,
   "equippedSkinId": 3,
   "equippedThemeId": null,
+  "equippedCursorId": null,
+  "equippedDeltaId": 12,
   "role": "USER"
 }
 ```
-- `equipped*Id`가 `null`이면 기본 스킨·테마다.
+- `equipped*Id`가 `null`이면 기본(스킨·테마·커서) 또는 꾸미지 않은 델타다.
 
 ---
 
@@ -293,16 +295,16 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### PUT `/profiles/me/equipment`
 
-장착할 스킨과 테마를 정한다. 값을 `null`로 보내면 장착을 해제하고 기본값으로 돌아간다.
+장착할 스킨·테마·커서·델타 꾸미기를 정한다(종류마다 하나). PUT이라 네 값을 모두 보낸다. `null`이거나 빠진 값은 장착을 해제하고 기본값으로 돌아간다.
 
 **Request**
 ```json
-{ "skinItemId": 3, "themeItemId": null }
+{ "skinItemId": 3, "themeItemId": null, "cursorItemId": 10, "deltaItemId": 12 }
 ```
 
 **Response** `200 OK`
 ```json
-{ "equippedSkinId": 3, "equippedThemeId": null }
+{ "equippedSkinId": 3, "equippedThemeId": null, "equippedCursorId": 10, "equippedDeltaId": 12 }
 ```
 
 **Error**: `403 FORBIDDEN` (가지고 있지 않은 아이템), `400 INVALID_INPUT` (종류가 맞지 않음, 예: 스킨 자리에 테마)
@@ -635,9 +637,10 @@ s.length(); // 여기서 예외",
 
 ## 7. 상점 / 메일
 
-### GET `/items?type={SKIN|THEME}`
+### GET `/items?type={SKIN|THEME|CURSOR|DELTA}`
 
-판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
+판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. 종류: `SKIN`(캐릭터 스킨), `THEME`(화면 테마), `CURSOR`(메인 터미널 커서), `DELTA`(델타 꾸미기).
+`CURSOR`·`DELTA`는 `image` 값이 게임이 그리는 모양 키다: 커서 `block` · `underline` · `bar`에 `-slow`/`-fast`(깜박임 속도)와 `:#rrggbb`(색)를 붙일 수 있다(예: `underline-slow:#ff4fa3`). 델타 꾸미기는 `antenna`, `sunglasses`. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
 
 **Response** `200 OK`
 ```json
@@ -666,7 +669,7 @@ s.length(); // 여기서 예외",
 
 ---
 
-### GET `/users/me/items?type={SKIN|THEME}`
+### GET `/users/me/items?type={SKIN|THEME|CURSOR|DELTA}`
 
 아이템 ID 순. `equipped`는 지금 장착 중인 스킨·테마인지 나타낸다.
 

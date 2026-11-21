@@ -21,7 +21,7 @@ public class ItemController {
     private final ItemService itemService;
 
     @Operation(summary = "상점 아이템 목록",
-            description = "판매 중인 아이템만. type(SKIN, THEME)을 빼면 전체. 각 아이템에 보유 여부가 붙는다.")
+            description = "판매 중인 아이템만. type(SKIN, THEME, CURSOR, DELTA)을 빼면 전체. 각 아이템에 보유 여부가 붙는다.")
     @GetMapping("/items")
     public List<ShopItemResponse> getShopItems(@LoginUser Long userId,
                                                @RequestParam(required = false) String type) {
@@ -36,7 +36,7 @@ public class ItemController {
     }
 
     @Operation(summary = "내 보유 아이템",
-            description = "type(SKIN, THEME)을 빼면 전체. equipped는 장착 중인 스킨·테마.")
+            description = "type(SKIN, THEME, CURSOR, DELTA)을 빼면 전체. equipped는 장착 중인 아이템.")
     @GetMapping("/users/me/items")
     public List<MyItemResponse> getMyItems(@LoginUser Long userId,
                                            @RequestParam(required = false) String type) {

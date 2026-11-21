@@ -145,32 +145,44 @@ class ProfileServiceTest {
         own(1L, item(3L, ItemType.SKIN), 1);
         own(1L, item(4L, ItemType.THEME), 1);
 
-        EquipmentResponse response = profileService.updateEquipment(1L, new EquipmentRequest(3L, 4L));
+        own(1L, item(5L, ItemType.CURSOR), 1);
+        own(1L, item(6L, ItemType.DELTA), 1);
 
-        assertThat(response).isEqualTo(new EquipmentResponse(3L, 4L));
+        EquipmentResponse response = profileService.updateEquipment(1L, new EquipmentRequest(3L, 4L, 5L, 6L));
+
+        assertThat(response).isEqualTo(new EquipmentResponse(3L, 4L, 5L, 6L));
     }
 
     @Test
     void null이면_장착을_해제한다() {
         me.equipSkin(item(3L, ItemType.SKIN));
 
-        EquipmentResponse response = profileService.updateEquipment(1L, new EquipmentRequest(null, null));
+        me.equipCursor(item(5L, ItemType.CURSOR));
 
-        assertThat(response).isEqualTo(new EquipmentResponse(null, null));
+        EquipmentResponse response = profileService.updateEquipment(1L, new EquipmentRequest(null, null, null, null));
+
+        assertThat(response).isEqualTo(new EquipmentResponse(null, null, null, null));
     }
 
     @Test
     void 보유하지_않은_아이템은_FORBIDDEN() {
         when(userItemRepository.findByUserIdAndItemId(1L, 3L)).thenReturn(Optional.empty());
 
-        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(3L, null)), ErrorCode.FORBIDDEN);
+        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(3L, null, null, null)), ErrorCode.FORBIDDEN);
     }
 
     @Test
     void 스킨_자리에_테마를_넣으면_INVALID_INPUT() {
         own(1L, item(4L, ItemType.THEME), 1);
 
-        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(4L, null)), ErrorCode.INVALID_INPUT);
+        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(4L, null, null, null)), ErrorCode.INVALID_INPUT);
+    }
+
+    @Test
+    void 커서_자리에_델타_꾸미기를_넣으면_INVALID_INPUT() {
+        own(1L, item(6L, ItemType.DELTA), 1);
+
+        assertErrorCode(() -> profileService.updateEquipment(1L, new EquipmentRequest(null, null, 6L, null)), ErrorCode.INVALID_INPUT);
     }
 
     // ---------- 다른 사용자 프로필 ----------
