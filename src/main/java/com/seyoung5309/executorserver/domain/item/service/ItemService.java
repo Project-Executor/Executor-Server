@@ -111,7 +111,7 @@ public class ItemService {
         try {
             return ItemType.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME 중 하나여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME, CURSOR, DELTA 중 하나여야 합니다.");
         }
     }
 
