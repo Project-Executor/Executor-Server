@@ -41,6 +41,16 @@ public class User {
     @JoinColumn(name = "equipped_theme_id")
     private Item equippedTheme;
 
+    /** NULL = 기본 커서 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equipped_cursor_id")
+    private Item equippedCursor;
+
+    /** NULL = 꾸미지 않은 델타 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equipped_delta_id")
+    private Item equippedDelta;
+
     /** 가입 직후의 사용자 (닉네임 없음) */
     public User(Account account) {
         this(account, null);
@@ -70,6 +80,16 @@ public class User {
         this.equippedTheme = theme;
     }
 
+    /** null이면 기본 커서. 보유 여부·종류 검사는 서비스에서 한다. */
+    public void equipCursor(Item cursor) {
+        this.equippedCursor = cursor;
+    }
+
+    /** null이면 꾸미지 않은 델타. 보유 여부·종류 검사는 서비스에서 한다. */
+    public void equipDelta(Item delta) {
+        this.equippedDelta = delta;
+    }
+
     /** 장착 스킨 ID. 프록시를 초기화하지 않고 ID만 꺼낸다. */
     public Long getEquippedSkinId() {
         return equippedSkin == null ? null : equippedSkin.getId();
@@ -77,5 +97,13 @@ public class User {
 
     public Long getEquippedThemeId() {
         return equippedTheme == null ? null : equippedTheme.getId();
+    }
+
+    public Long getEquippedCursorId() {
+        return equippedCursor == null ? null : equippedCursor.getId();
+    }
+
+    public Long getEquippedDeltaId() {
+        return equippedDelta == null ? null : equippedDelta.getId();
     }
 }

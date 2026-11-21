@@ -4,7 +4,7 @@ import com.seyoung5309.executorserver.domain.auth.entity.Role;
 import com.seyoung5309.executorserver.domain.auth.entity.Account;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
 
-/** 내 프로필. equipped*Id가 null이면 기본 스킨·테마 */
+/** 내 프로필. equipped*Id가 null이면 기본 (스킨·테마·커서, 꾸미지 않은 델타) */
 public record MyProfileResponse(
         Long userId,
         String email,
@@ -13,6 +13,8 @@ public record MyProfileResponse(
         int coin,
         Long equippedSkinId,
         Long equippedThemeId,
+        Long equippedCursorId,
+        Long equippedDeltaId,
         Role role
 ) {
 
@@ -26,6 +28,8 @@ public record MyProfileResponse(
                 profile.getCoin(),
                 profile.getEquippedSkinId(),
                 profile.getEquippedThemeId(),
+                profile.getEquippedCursorId(),
+                profile.getEquippedDeltaId(),
                 account.getRole()
         );
     }

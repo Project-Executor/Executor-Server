@@ -92,14 +92,14 @@ public class ItemService {
     public List<MyItemResponse> getMyItems(Long userId, ItemType itemType) {
         User profile = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "프로필을 찾을 수 없습니다."));
-        Long skinId = profile.getEquippedSkinId();
-        Long themeId = profile.getEquippedThemeId();
+        java.util.Set<Long> equipped = new java.util.HashSet<>();
+        for (Long id : new Long[] {profile.getEquippedSkinId(), profile.getEquippedThemeId(),
+                profile.getEquippedCursorId(), profile.getEquippedDeltaId()}) {
+            if (id != null) equipped.add(id);
+        }
 
         return userItemRepository.findMyItems(userId, itemType).stream()
-                .map(userItem -> {
-                    Long id = userItem.getItem().getId();
-                    return MyItemResponse.of(userItem, Objects.equals(id, skinId) || Objects.equals(id, themeId));
-                })
+                .map(userItem -> MyItemResponse.of(userItem, equipped.contains(userItem.getItem().getId())))
                 .toList();
     }
 
@@ -111,7 +111,7 @@ public class ItemService {
         try {
             return ItemType.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME 중 하나여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "type은 SKIN, THEME, CURSOR, DELTA 중 하나여야 합니다.");
         }
     }
 

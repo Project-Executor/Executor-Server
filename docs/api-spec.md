@@ -93,6 +93,7 @@
 |  | POST | `/auth/logout` | 로그아웃 | AUTH-06 |
 |  | GET | `/auth/check-email` 🔓 | 이메일 중복 확인 | AUTH-02 |
 |  | DELETE | `/users/me` | 회원 탈퇴 | AUTH-07 |
+| 상태 | GET | `/health` 🔓 | 서버 연결 확인 (`{"status":"ok"}`) | AUTH-08 |
 | 프로필 | GET | `/profiles/check-nickname` 🔓 | 닉네임 중복 확인 | PROFILE-01 |
 |  | GET | `/profiles/me` | 내 프로필 | PROFILE-03 |
 |  | PATCH | `/profiles/me` | 내 프로필 수정 | PROFILE-02, 04 |
@@ -135,6 +136,7 @@
 | 공지 | GET | `/notices` 🔓 | 공지 목록 | NOTICE-01 |
 |  | GET | `/notices/{noticeId}` 🔓 | 공지 상세 | NOTICE-02 |
 | 단어 목록 | GET | `/word-lists/{wordListId}` 🔓 | 타자 해킹 단어 | |
+| 인물 | GET | `/characters` 🔓 | 대화창 이름표 색·일러스트 폴더 | |
 | 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04, NOTICE-03 |
 
 ---
@@ -158,7 +160,7 @@
 | 필드 | 규칙 |
 | --- | --- |
 | email | 이메일 형식, 최대 255자 |
-| password | 8~64자 |
+| password | 8~64자, 영문과 숫자를 함께 (예: `abcd1234`) |
 
 **Response** `201 Created`
 ```json
@@ -226,6 +228,12 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
+### GET `/health` 🔓
+
+서버 연결 확인. DB를 건드리지 않고 항상 `200 {"status":"ok"}`. 게임 로그인 창이 응답 시간(ms)을 재서 "서버 연결됨 · 32ms"로 보여 준다.
+
+---
+
 ### DELETE `/users/me`
 
 회원 탈퇴. 탈퇴하면 프로필, 기록, 아이템, 친구, 메시지, 메일, 내가 만든 맵이 함께 삭제된다. 신고 기록은 남고 신고자와 대상은 NULL이 된다.
@@ -264,10 +272,12 @@ Redis에 저장된 Refresh Token을 지운다.
   "coin": 350,
   "equippedSkinId": 3,
   "equippedThemeId": null,
+  "equippedCursorId": null,
+  "equippedDeltaId": 12,
   "role": "USER"
 }
 ```
-- `equipped*Id`가 `null`이면 기본 스킨·테마다.
+- `equipped*Id`가 `null`이면 기본(스킨·테마·커서) 또는 꾸미지 않은 델타다.
 
 ---
 
@@ -293,16 +303,16 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ### PUT `/profiles/me/equipment`
 
-장착할 스킨과 테마를 정한다. 값을 `null`로 보내면 장착을 해제하고 기본값으로 돌아간다.
+장착할 스킨·테마·커서·델타 꾸미기를 정한다(종류마다 하나). PUT이라 네 값을 모두 보낸다. `null`이거나 빠진 값은 장착을 해제하고 기본값으로 돌아간다.
 
 **Request**
 ```json
-{ "skinItemId": 3, "themeItemId": null }
+{ "skinItemId": 3, "themeItemId": null, "cursorItemId": 10, "deltaItemId": 12 }
 ```
 
 **Response** `200 OK`
 ```json
-{ "equippedSkinId": 3, "equippedThemeId": null }
+{ "equippedSkinId": 3, "equippedThemeId": null, "equippedCursorId": 10, "equippedDeltaId": 12 }
 ```
 
 **Error**: `403 FORBIDDEN` (가지고 있지 않은 아이템), `400 INVALID_INPUT` (종류가 맞지 않음, 예: 스킨 자리에 테마)
@@ -619,9 +629,15 @@ Redis에 저장된 Refresh Token을 지운다.
   "image": "/guide/npe.png",
   "comment": "존재하지 않는 객체를 참조하려 할 때 발생하는 오류...",
   "stageId": 2,
-  "unlockedAt": "2026-11-20T03:12:00Z"
+  "unlockedAt": "2026-11-20T03:12:00Z",
+  "language": "Java",
+  "code": "String s = null;
+s.length(); // 여기서 예외",
+  "remedy": "쓰기 전에 s != null 인지 확인하기",
+  "mapNote": "지나갈 수 없는 칸"
 }
 ```
+- `language`(언어), `code`(코드 예시, 여러 줄), `remedy`(대처), `mapNote`(맵에서의 모습)는 관리자가 적지 않았으면 `null`. 게임은 비어 있는 항목을 숨긴다.
 
 **Error**: `403 FORBIDDEN` (아직 해금하지 않은 항목)
 
@@ -629,9 +645,10 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ## 7. 상점 / 메일
 
-### GET `/items?type={SKIN|THEME}`
+### GET `/items?type={SKIN|THEME|CURSOR|DELTA}`
 
-판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
+판매 중(`is_active = true`)인 아이템만 아이템 ID 순으로 조회한다. 종류: `SKIN`(캐릭터 스킨), `THEME`(화면 테마), `CURSOR`(메인 터미널 커서), `DELTA`(델타 꾸미기).
+`CURSOR`·`DELTA`는 `image` 값이 게임이 그리는 모양 키다: 커서 `block` · `underline` · `bar`에 `-slow`/`-fast`(깜박임 속도)와 `:#rrggbb`(색)를 붙일 수 있다(예: `underline-slow:#ff4fa3`). 델타 꾸미기는 `antenna`, `sunglasses`. `type`을 빼면 전체(대소문자 무시). 보유하지 않은 아이템은 `owned: false`, `quantity: 0`.
 
 **Response** `200 OK`
 ```json
@@ -660,7 +677,7 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
-### GET `/users/me/items?type={SKIN|THEME}`
+### GET `/users/me/items?type={SKIN|THEME|CURSOR|DELTA}`
 
 아이템 ID 순. `equipped`는 지금 장착 중인 스킨·테마인지 나타낸다.
 
@@ -966,6 +983,24 @@ Redis에 저장된 Refresh Token을 지운다.
 
 ---
 
+## 8-3. 인물 🔓
+
+대화·이야기에 나오는 인물. 게임은 대사의 `speaker`를 `name`으로, `portrait`("인물ID/표정")의 인물 ID를 `characterKey`로 찾아
+이름표 바탕색(`tagColor`)과 일러스트(`Resources/Portraits/{characterKey}/{표정}`)를 정한다. `protagonist`인 인물은 대화창 왼쪽(주인공 자리)에 선다.
+목록에 없는 인물은 기본 색을 쓴다. 오프라인 테스트에서도 받을 수 있게 로그인 없이 공개한다.
+
+### GET `/characters` 🔓
+
+**Response** `200 OK` (ID 순)
+```json
+[
+  { "characterId": 1, "characterKey": "player", "name": "집행자", "tagColor": "#D4D6DE", "protagonist": true },
+  { "characterId": 3, "characterKey": "delta", "name": "델타", "tagColor": "#FF9A3C", "protagonist": false }
+]
+```
+
+---
+
 ## 9. 관리자 API 🛡️
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
@@ -984,6 +1019,10 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/word-lists` | 단어 목록 등록 (`201`) | `name`(1~100자, 겹치면 `409`), `description`, `words`(배열, 1000개 이하). 단어는 앞뒤 공백을 지우고 빈 줄·중복을 빼며, 남은 단어가 없거나 50자를 넘으면 `400` |
 | PUT | `/admin/word-lists/{id}` | 단어 목록 수정 | 등록과 같음. 단어는 통째로 바뀐다 |
 | DELETE | `/admin/word-lists/{id}` | 단어 목록 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 컴퓨터는 게임이 기본 단어를 쓴다) |
+| GET | `/admin/characters` | 인물 전체 | ID 순. 항목은 `GET /characters`와 같음 |
+| POST | `/admin/characters` | 인물 등록 (`201`) | `characterKey`(영문 소문자·숫자·`-`·`_` 1~50자), `name`(1~50자), `tagColor`(`#RRGGBB`, 대문자로 저장), `protagonist`(없으면 false). `characterKey`·`name`이 겹치면 `409` |
+| PUT | `/admin/characters/{id}` | 인물 수정 | 등록과 같음 |
+| DELETE | `/admin/characters/{id}` | 인물 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 대사는 기본 이름표 색) |
 | GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
@@ -992,8 +1031,8 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보낸다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
-| GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment` |
-| POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment` |
+| GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment`, `language`, `code`, `remedy`, `mapNote` |
+| POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment`, 선택: `language`(50자), `code`(2000자, 여러 줄), `remedy`(255자), `mapNote`(255자). 빈칸은 null로 저장 |
 | PUT | `/admin/guidebooks/{id}` | 도감 수정 | 등록과 같음 |
 | DELETE | `/admin/guidebooks/{id}` | 도감 삭제 | 사용자의 해금 기록도 함께 삭제 |
 | GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |

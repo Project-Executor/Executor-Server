@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,19 +17,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * 보안 설정.
  * 세션 없이 JWT(Access Token)로 인증하고, 막힌 요청은 SecurityErrorHandler가 JSON으로 응답한다.
+ * 다른 주소의 웹(관리자 웹)은 CORS 허용 목록(CorsProperties)에 있는 주소만 브라우저에서 부를 수 있다.
  */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
+    private final CorsProperties corsProperties;
 
     private static final String[] PUBLIC_URLS = {
             "/swagger-ui/**",
@@ -38,12 +46,15 @@ public class SecurityConfig {
             "/api-tester.html",
             "/api/auth/**",
             "/api/profiles/check-nickname",
+            "/api/health",
             "/error"
     };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // CORS 사전 요청(OPTIONS)도 인증보다 먼저 이 설정으로 응답한다
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
@@ -56,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/notices", "/api/notices/*").permitAll()
                         // 타자 해킹 단어는 오프라인 테스트에서도 받을 수 있게 조회만 공개
                         .requestMatchers(HttpMethod.GET, "/api/word-lists/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/characters").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // 401(인증 없음) / 403(권한 없음)을 공통 JSON 형식으로 응답
@@ -65,6 +77,23 @@ public class SecurityConfig {
                 // @Component로 등록하면 서블릿 필터로도 한 번 더 등록되므로 여기서 직접 생성한다
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * CORS: 허용 목록의 주소에서 온 /api 요청만 브라우저가 응답을 읽을 수 있다.
+     * 인증은 Authorization 헤더의 Bearer 토큰이라 쿠키(credentials)는 허용하지 않는다
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(corsProperties.allowedOrigins());
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        config.setAllowCredentials(false);
+        config.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", config);
+        return source;
     }
 
     @Bean

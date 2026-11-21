@@ -9,7 +9,11 @@ public record AdminGuidebookResponse(
         GuidebookCategory category,
         String title,
         String image,
-        String comment
+        String comment,
+        String language,
+        String code,
+        String remedy,
+        String mapNote
 ) {
     public static AdminGuidebookResponse from(Guidebook guidebook) {
         return new AdminGuidebookResponse(
@@ -18,6 +22,10 @@ public record AdminGuidebookResponse(
                 guidebook.getCategory(),
                 guidebook.getTitle(),
                 guidebook.getImage(),
-                guidebook.getComment());
+                guidebook.getComment(),
+                guidebook.getLanguage(),
+                guidebook.getCode(),
+                guidebook.getRemedy(),
+                guidebook.getMapNote());
     }
 }

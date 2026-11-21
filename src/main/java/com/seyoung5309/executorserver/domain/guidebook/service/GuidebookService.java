@@ -66,7 +66,11 @@ public class GuidebookService {
                 guidebook.getImage(),
                 guidebook.getComment(),
                 guidebook.getStage() == null ? null : guidebook.getStage().getId(),
-                unlocked.getUnlockedAt()
+                unlocked.getUnlockedAt(),
+                guidebook.getLanguage(),
+                guidebook.getCode(),
+                guidebook.getRemedy(),
+                guidebook.getMapNote()
         );
     }
 

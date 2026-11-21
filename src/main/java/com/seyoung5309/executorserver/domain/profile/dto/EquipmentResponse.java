@@ -1,4 +1,4 @@
 package com.seyoung5309.executorserver.domain.profile.dto;
 
-public record EquipmentResponse(Long equippedSkinId, Long equippedThemeId) {
+public record EquipmentResponse(Long equippedSkinId, Long equippedThemeId, Long equippedCursorId, Long equippedDeltaId) {
 }

@@ -90,8 +90,11 @@ public class ProfileService {
 
         profile.equipSkin(findOwnedItem(userId, request.skinItemId(), ItemType.SKIN));
         profile.equipTheme(findOwnedItem(userId, request.themeItemId(), ItemType.THEME));
+        profile.equipCursor(findOwnedItem(userId, request.cursorItemId(), ItemType.CURSOR));
+        profile.equipDelta(findOwnedItem(userId, request.deltaItemId(), ItemType.DELTA));
 
-        return new EquipmentResponse(profile.getEquippedSkinId(), profile.getEquippedThemeId());
+        return new EquipmentResponse(profile.getEquippedSkinId(), profile.getEquippedThemeId(),
+                profile.getEquippedCursorId(), profile.getEquippedDeltaId());
     }
 
     /**

@@ -34,6 +34,21 @@ public class Guidebook {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String comment;
 
+    /** 언어 (예: Java). 없으면 null */
+    @Column(length = 50)
+    private String language;
+
+    /** 코드 예시 (여러 줄). 없으면 null */
+    @Column(columnDefinition = "TEXT")
+    private String code;
+
+    /** 대처 방법 한 줄 (예: 쓰기 전에 s != null 인지 확인하기). 없으면 null */
+    private String remedy;
+
+    /** 맵에서의 모습 (예: 지나갈 수 없는 칸). 없으면 null */
+    @Column(name = "map_note")
+    private String mapNote;
+
     public Guidebook(Stage stage, GuidebookCategory category, String title, String image, String comment) {
         update(stage, category, title, image, comment);
     }
@@ -44,5 +59,13 @@ public class Guidebook {
         this.title = title;
         this.image = image;
         this.comment = comment;
+    }
+
+    /** 도감 상세의 추가 설명 (언어, 코드 예시, 대처, 맵에서). 빈 값은 null로 */
+    public void describe(String language, String code, String remedy, String mapNote) {
+        this.language = language;
+        this.code = code;
+        this.remedy = remedy;
+        this.mapNote = mapNote;
     }
 }
