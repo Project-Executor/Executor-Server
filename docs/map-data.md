@@ -470,6 +470,7 @@ W(위), A(왼쪽), S(아래), D(오른쪽) 입력 하나가 행동 하나다. **
 | `narration` | 나레이션 문장 한 줄 (화면 가운데 띠). 선택 필드 `background`: `"error"`(기본, 오류 로그가 흐르는 배경) 또는 `"glitch"`(델타 창이 일그러지는 배경). 예: `{ "type": "narration", "background": "glitch", "text": "노트북 화면이 일그러지며 당신을 끌어당긴다." }`. 글에 `<color=#ff4d5e>…</color>`로 색을 넣을 수 있다 |
 | `line` | 인물 대사 한 줄. 대화창에 이름표·일러스트와 함께 보여 준다. 필드 `speaker`, `portrait`, `text`는 대화 노드와 같다 ([4장](#4-dialogues)). 예: `{ "type": "line", "speaker": "{nickname}", "text": "여긴 어디지…?" }` |
 | `inputNickname` | 닉네임 입력 창 (중복 확인 버튼 포함). `GET /profiles/check-nickname`로 확인하고 `PATCH /profiles/me`의 `nickname`으로 저장한다. **이미 닉네임이 있으면 건너뛴다** (로그인 응답의 `hasNickname`) |
+| `dialogue` | 선택지가 있는 대화. 필드 `dialogueId`: 이 맵 [dialogues](#4-dialogues)의 키. 대화창에서 그 대화를 시작 노드부터 선택지까지 진행하고, 대화가 끝나면 다음 단계로 넘어간다. 인물이 없으므로 화자를 비운 노드는 이름표 없이 나오고, `giveKey` 같은 effects는 실행하지 않는다. 대화가 없으면 이 단계를 건너뛴다. 예: `{ "type": "dialogue", "dialogueId": "story1" }` |
 
 ---
 
