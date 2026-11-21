@@ -136,6 +136,7 @@
 | 공지 | GET | `/notices` 🔓 | 공지 목록 | NOTICE-01 |
 |  | GET | `/notices/{noticeId}` 🔓 | 공지 상세 | NOTICE-02 |
 | 단어 목록 | GET | `/word-lists/{wordListId}` 🔓 | 타자 해킹 단어 | |
+| 인물 | GET | `/characters` 🔓 | 대화창 이름표 색·일러스트 폴더 | |
 | 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04, NOTICE-03 |
 
 ---
@@ -982,6 +983,24 @@ s.length(); // 여기서 예외",
 
 ---
 
+## 8-3. 인물 🔓
+
+대화·이야기에 나오는 인물. 게임은 대사의 `speaker`를 `name`으로, `portrait`("인물ID/표정")의 인물 ID를 `characterKey`로 찾아
+이름표 바탕색(`tagColor`)과 일러스트(`Resources/Portraits/{characterKey}/{표정}`)를 정한다. `protagonist`인 인물은 대화창 왼쪽(주인공 자리)에 선다.
+목록에 없는 인물은 기본 색을 쓴다. 오프라인 테스트에서도 받을 수 있게 로그인 없이 공개한다.
+
+### GET `/characters` 🔓
+
+**Response** `200 OK` (ID 순)
+```json
+[
+  { "characterId": 1, "characterKey": "player", "name": "집행자", "tagColor": "#D4D6DE", "protagonist": true },
+  { "characterId": 3, "characterKey": "delta", "name": "델타", "tagColor": "#FF9A3C", "protagonist": false }
+]
+```
+
+---
+
 ## 9. 관리자 API 🛡️
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
@@ -1000,6 +1019,10 @@ s.length(); // 여기서 예외",
 | POST | `/admin/word-lists` | 단어 목록 등록 (`201`) | `name`(1~100자, 겹치면 `409`), `description`, `words`(배열, 1000개 이하). 단어는 앞뒤 공백을 지우고 빈 줄·중복을 빼며, 남은 단어가 없거나 50자를 넘으면 `400` |
 | PUT | `/admin/word-lists/{id}` | 단어 목록 수정 | 등록과 같음. 단어는 통째로 바뀐다 |
 | DELETE | `/admin/word-lists/{id}` | 단어 목록 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 컴퓨터는 게임이 기본 단어를 쓴다) |
+| GET | `/admin/characters` | 인물 전체 | ID 순. 항목은 `GET /characters`와 같음 |
+| POST | `/admin/characters` | 인물 등록 (`201`) | `characterKey`(영문 소문자·숫자·`-`·`_` 1~50자), `name`(1~50자), `tagColor`(`#RRGGBB`, 대문자로 저장), `protagonist`(없으면 false). `characterKey`·`name`이 겹치면 `409` |
+| PUT | `/admin/characters/{id}` | 인물 수정 | 등록과 같음 |
+| DELETE | `/admin/characters/{id}` | 인물 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 대사는 기본 이름표 색) |
 | GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |

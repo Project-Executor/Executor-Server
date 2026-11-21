@@ -306,6 +306,20 @@ CREATE TABLE word_list_words (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '단어 목록의 단어';
 
 
+-- 대화 인물 (대사의 speaker = name, portrait의 인물 ID = character_key)
+CREATE TABLE characters (
+    id             BIGINT        NOT NULL AUTO_INCREMENT COMMENT '인물 ID',
+    character_key  VARCHAR(50)   NOT NULL                COMMENT '일러스트 폴더 ID (Resources/Portraits/{key})',
+    name           VARCHAR(50)   NOT NULL                COMMENT '대사의 speaker와 같은 이름',
+    tag_color      VARCHAR(7)    NOT NULL                COMMENT '이름표 바탕색 #RRGGBB',
+    protagonist    BOOLEAN       NOT NULL DEFAULT FALSE  COMMENT '주인공(대화창 왼쪽)',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_characters_key (character_key),
+    UNIQUE KEY uk_characters_name (name)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '대화 인물';
+
+
 -- 사용자의 도감 해금 기록
 CREATE TABLE user_guidebooks (
     id            BIGINT     NOT NULL AUTO_INCREMENT COMMENT 'ID',

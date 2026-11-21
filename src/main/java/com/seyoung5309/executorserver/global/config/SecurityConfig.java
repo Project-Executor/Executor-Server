@@ -67,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/notices", "/api/notices/*").permitAll()
                         // 타자 해킹 단어는 오프라인 테스트에서도 받을 수 있게 조회만 공개
                         .requestMatchers(HttpMethod.GET, "/api/word-lists/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/characters").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // 401(인증 없음) / 403(권한 없음)을 공통 JSON 형식으로 응답
