@@ -2,6 +2,7 @@ package com.seyoung5309.executorserver.domain.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record SignupRequest(
@@ -12,6 +13,7 @@ public record SignupRequest(
 
         @NotBlank(message = "비밀번호를 입력해 주세요.")
         @Size(min = 8, max = 64, message = "비밀번호는 8~64자여야 합니다.")
+        @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).*$", message = "비밀번호에 영문과 숫자를 함께 넣어 주세요.")
         String password
 ) {
 }

@@ -93,6 +93,7 @@
 |  | POST | `/auth/logout` | 로그아웃 | AUTH-06 |
 |  | GET | `/auth/check-email` 🔓 | 이메일 중복 확인 | AUTH-02 |
 |  | DELETE | `/users/me` | 회원 탈퇴 | AUTH-07 |
+| 상태 | GET | `/health` 🔓 | 서버 연결 확인 (`{"status":"ok"}`) | AUTH-08 |
 | 프로필 | GET | `/profiles/check-nickname` 🔓 | 닉네임 중복 확인 | PROFILE-01 |
 |  | GET | `/profiles/me` | 내 프로필 | PROFILE-03 |
 |  | PATCH | `/profiles/me` | 내 프로필 수정 | PROFILE-02, 04 |
@@ -158,7 +159,7 @@
 | 필드 | 규칙 |
 | --- | --- |
 | email | 이메일 형식, 최대 255자 |
-| password | 8~64자 |
+| password | 8~64자, 영문과 숫자를 함께 (예: `abcd1234`) |
 
 **Response** `201 Created`
 ```json
@@ -223,6 +224,12 @@ Redis에 저장된 Refresh Token을 지운다.
 ```json
 { "available": true }
 ```
+
+---
+
+### GET `/health` 🔓
+
+서버 연결 확인. DB를 건드리지 않고 항상 `200 {"status":"ok"}`. 게임 로그인 창이 응답 시간(ms)을 재서 "서버 연결됨 · 32ms"로 보여 준다.
 
 ---
 

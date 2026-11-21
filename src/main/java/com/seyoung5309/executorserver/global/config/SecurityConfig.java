@@ -46,6 +46,7 @@ public class SecurityConfig {
             "/api-tester.html",
             "/api/auth/**",
             "/api/profiles/check-nickname",
+            "/api/health",
             "/error"
     };
 
