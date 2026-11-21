@@ -39,6 +39,7 @@ public class AdminGuidebookService {
 
         Guidebook guidebook = new Guidebook(stage, request.category(), title,
                 AdminText.blankToNull(request.image()), request.comment().strip());
+        describe(guidebook, request);
         saveAndFlush(guidebook);
         return AdminGuidebookResponse.from(guidebook);
     }
@@ -52,8 +53,19 @@ public class AdminGuidebookService {
 
         guidebook.update(stage, request.category(), title,
                 AdminText.blankToNull(request.image()), request.comment().strip());
+        describe(guidebook, request);
         saveAndFlush(guidebook);
         return AdminGuidebookResponse.from(guidebook);
+    }
+
+    /** 언어·코드 예시·대처·맵에서. 앞뒤 공백을 지우고 비어 있으면 null (코드는 줄 앞 들여쓰기를 지키려고 끝 공백만 지운다) */
+    private static void describe(Guidebook guidebook, AdminGuidebookRequest request) {
+        String code = request.code() == null ? null : request.code().replace("\r\n", "\n").stripTrailing();
+        guidebook.describe(
+                AdminText.blankToNull(request.language()),
+                code == null || code.isBlank() ? null : code,
+                AdminText.blankToNull(request.remedy()),
+                AdminText.blankToNull(request.mapNote()));
     }
 
     /**

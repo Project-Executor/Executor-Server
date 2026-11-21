@@ -266,6 +266,10 @@ CREATE TABLE guidebooks (
     title      VARCHAR(255)    NOT NULL                COMMENT '이름 (예: NullPointerException)',
     image      VARCHAR(255)        NULL                COMMENT '도감 이미지 경로',
     comment    TEXT            NOT NULL                COMMENT '설명',
+    language   VARCHAR(50)         NULL                COMMENT '언어 (예: Java)',
+    code       TEXT                NULL                COMMENT '코드 예시',
+    remedy     VARCHAR(255)        NULL                COMMENT '대처 방법',
+    map_note   VARCHAR(255)        NULL                COMMENT '맵에서의 모습',
 
     PRIMARY KEY (id),
     UNIQUE KEY uk_guidebooks_title (title),

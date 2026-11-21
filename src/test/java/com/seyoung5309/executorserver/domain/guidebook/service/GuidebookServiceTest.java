@@ -80,7 +80,7 @@ class GuidebookServiceTest {
         GuidebookDetailResponse detail = service.getGuidebook(1L, 1L);
 
         assertThat(detail).isEqualTo(new GuidebookDetailResponse(1L, GuidebookCategory.BUG, "NullPointerException",
-                "/g/npe.png", "설명: NullPointerException", 20L, UNLOCKED_AT));
+                "/g/npe.png", "설명: NullPointerException", 20L, UNLOCKED_AT, null, null, null, null));
     }
 
     @Test

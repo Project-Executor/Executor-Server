@@ -619,9 +619,15 @@ Redis에 저장된 Refresh Token을 지운다.
   "image": "/guide/npe.png",
   "comment": "존재하지 않는 객체를 참조하려 할 때 발생하는 오류...",
   "stageId": 2,
-  "unlockedAt": "2026-11-20T03:12:00Z"
+  "unlockedAt": "2026-11-20T03:12:00Z",
+  "language": "Java",
+  "code": "String s = null;
+s.length(); // 여기서 예외",
+  "remedy": "쓰기 전에 s != null 인지 확인하기",
+  "mapNote": "지나갈 수 없는 칸"
 }
 ```
+- `language`(언어), `code`(코드 예시, 여러 줄), `remedy`(대처), `mapNote`(맵에서의 모습)는 관리자가 적지 않았으면 `null`. 게임은 비어 있는 항목을 숨긴다.
 
 **Error**: `403 FORBIDDEN` (아직 해금하지 않은 항목)
 
@@ -992,8 +998,8 @@ Redis에 저장된 Refresh Token을 지운다.
 | POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보낸다 |
 | PUT | `/admin/stages/{id}` | 공식 스테이지 수정 | 등록과 같음. 기존 기록은 유지한다 |
 | DELETE | `/admin/stages/{id}` | 공식 스테이지 삭제 | 기록도 함께 삭제되고, 도감의 `stageId`는 NULL이 된다 |
-| GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment` |
-| POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment` |
+| GET | `/admin/guidebooks` | 도감 전체 목록 | ID 순. 해금 여부와 상관없이 내용까지. 항목: `guidebookId`, `stageId`(없으면 null), `category`, `title`, `image`, `comment`, `language`, `code`, `remedy`, `mapNote` |
+| POST | `/admin/guidebooks` | 도감 등록 | `stageId`, `category`, `title`, `image`, `comment`, 선택: `language`(50자), `code`(2000자, 여러 줄), `remedy`(255자), `mapNote`(255자). 빈칸은 null로 저장 |
 | PUT | `/admin/guidebooks/{id}` | 도감 수정 | 등록과 같음 |
 | DELETE | `/admin/guidebooks/{id}` | 도감 삭제 | 사용자의 해금 기록도 함께 삭제 |
 | GET | `/admin/items` | 아이템 전체 목록 | 판매 중단된 아이템까지 모두 |

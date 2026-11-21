@@ -287,7 +287,7 @@ class AdminServiceTest {
         @Test
         void 처음_등장_스테이지_없이_등록할_수_있다() {
             AdminGuidebookResponse response = service.create(
-                    new AdminGuidebookRequest(null, GuidebookCategory.TERM, " API ", "", "설명"));
+                    new AdminGuidebookRequest(null, GuidebookCategory.TERM, " API ", "", "설명", null, null, null, null));
 
             assertThat(response.stageId()).isNull();
             assertThat(response.title()).isEqualTo("API");
@@ -296,8 +296,19 @@ class AdminServiceTest {
         }
 
         @Test
+        void 상세_항목은_앞뒤_공백을_지우고_빈칸은_null_코드는_들여쓰기를_지킨다() {
+            AdminGuidebookResponse response = service.create(new AdminGuidebookRequest(null, GuidebookCategory.BUG, "NPE", null, "설명",
+                    " Java ", "String s = null;\r\n    s.length();  \n", "  ", " 쓰기 전에 확인하기 "));
+
+            assertThat(response.language()).isEqualTo("Java");
+            assertThat(response.code()).isEqualTo("String s = null;\n    s.length();");
+            assertThat(response.remedy()).isNull();
+            assertThat(response.mapNote()).isEqualTo("쓰기 전에 확인하기");
+        }
+
+        @Test
         void 없는_스테이지를_가리키면_NOT_FOUND() {
-            assertErrorCode(() -> service.create(new AdminGuidebookRequest(99L, GuidebookCategory.BUG, "NPE", null, "설명")),
+            assertErrorCode(() -> service.create(new AdminGuidebookRequest(99L, GuidebookCategory.BUG, "NPE", null, "설명", null, null, null, null)),
                     ErrorCode.NOT_FOUND);
         }
 
@@ -305,7 +316,7 @@ class AdminServiceTest {
         void 이름이_겹치면_DUPLICATE_VALUE() {
             when(guidebookRepository.existsByTitleAndIdNot("NPE", 0L)).thenReturn(true);
 
-            assertErrorCode(() -> service.create(new AdminGuidebookRequest(null, GuidebookCategory.BUG, "NPE", null, "설명")),
+            assertErrorCode(() -> service.create(new AdminGuidebookRequest(null, GuidebookCategory.BUG, "NPE", null, "설명", null, null, null, null)),
                     ErrorCode.DUPLICATE_VALUE);
         }
 
