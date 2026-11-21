@@ -137,6 +137,7 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 - Railway 서비스 설정
   - Root Directory: 비워 둔다 (저장소 루트)
   - Variables: `MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`, `REDISHOST`, `REDISPORT`, `REDISPASSWORD`는 `${{MySQL.MYSQLHOST}}`처럼 각 서비스 값을 참조하고, `JWT_SECRET`은 직접 넣는다.
+  - `CORS_ALLOWED_ORIGINS`(선택): 브라우저에서 API를 부를 수 있는 다른 주소, 쉼표로 여러 개. 비우면 기본값(관리자 웹 배포 주소, `http://localhost:5173`, `http://localhost:4173`). 관리자 웹 주소가 바뀌면 여기에 넣는다. 게임(Unity)은 브라우저가 아니라 상관없다.
   - 서버 포트는 Railway가 넣는 `PORT`를 따른다.
 - 배포 전 확인: 새 마이그레이션이 있으면 운영 DB에 먼저 실행했는지.
 
