@@ -12,6 +12,7 @@ import com.seyoung5309.executorserver.domain.profile.dto.MyProfileResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.ProfileDetailResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.UpdateProfileRequest;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserAvatarRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
@@ -45,6 +46,7 @@ class ProfileServiceTest {
     private UserItemRepository userItemRepository;
     private UserStageRepository userStageRepository;
     private FriendRepository friendRepository;
+    private UserAvatarRepository userAvatarRepository;
     private ProfileService profileService;
 
     private User me;
@@ -55,7 +57,9 @@ class ProfileServiceTest {
         userItemRepository = mock(UserItemRepository.class);
         userStageRepository = mock(UserStageRepository.class);
         friendRepository = mock(FriendRepository.class);
-        profileService = new ProfileService(userRepository, userItemRepository, userStageRepository, friendRepository);
+        userAvatarRepository = mock(UserAvatarRepository.class);
+        profileService = new ProfileService(userRepository, userItemRepository, userStageRepository, friendRepository,
+                userAvatarRepository);
 
         me = profile(1L, "me@example.com", "debugger");
         when(userRepository.findWithUserById(1L)).thenReturn(Optional.of(me));

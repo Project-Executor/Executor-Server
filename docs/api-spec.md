@@ -98,6 +98,9 @@
 |  | GET | `/profiles/me` | 내 프로필 | PROFILE-03 |
 |  | PATCH | `/profiles/me` | 내 프로필 수정 | PROFILE-02, 04 |
 |  | PUT | `/profiles/me/equipment` | 스킨·테마 장착 | PROFILE-07 |
+|  | PUT | `/profiles/me/avatar` | 프로필 사진 올리기 | PROFILE-08 |
+|  | DELETE | `/profiles/me/avatar` | 프로필 사진 지우기 (기본 사진) | PROFILE-08 |
+|  | GET | `/profiles/{userId}/avatar` | 프로필 사진 그림 | PROFILE-08 |
 |  | GET | `/profiles/{userId}` | 다른 사용자 프로필 | PROFILE-05 |
 |  | GET | `/profiles/search` | 닉네임 검색 | PROFILE-06 |
 | 스테이지 | GET | `/operations` | 작전·스테이지 목록과 내 진행도 | STAGE-01 |
@@ -274,10 +277,12 @@ Redis에 저장된 Refresh Token을 지운다.
   "equippedThemeId": null,
   "equippedCursorId": null,
   "equippedDeltaId": 12,
-  "role": "USER"
+  "role": "USER",
+  "avatarVersion": 1763953200
 }
 ```
 - `equipped*Id`가 `null`이면 기본(스킨·테마·커서) 또는 꾸미지 않은 델타다.
+- `avatarVersion`: 프로필 사진을 바꾼 시각(Unix 초). 사진이 없으면 `null`(기본 실루엣). 값이 바뀌었을 때만 `GET /profiles/{userId}/avatar`를 다시 받으면 된다.
 
 ---
 
@@ -316,6 +321,37 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 
 **Error**: `403 FORBIDDEN` (가지고 있지 않은 아이템), `400 INVALID_INPUT` (종류가 맞지 않음, 예: 스킨 자리에 테마)
+
+---
+
+### PUT `/profiles/me/avatar`
+
+프로필 사진을 올린다(있으면 바꾼다). 게임은 고른 그림을 정사각형으로 잘라 256×256 PNG로 보낸다.
+
+**Request**
+```json
+{ "image": "iVBORw0KGgoAAAANSUhEUgAA..." }
+```
+- `image`: PNG 또는 JPEG 파일을 Base64로 인코딩한 문자열. `data:image/png;base64,` 접두사도 받는다. 디코딩해서 512KB 이하.
+
+**Response** `200 OK`
+```json
+{ "avatarVersion": 1763953200 }
+```
+- 오류: `400 INVALID_INPUT` (Base64가 아님, PNG·JPEG가 아님, 512KB 초과)
+
+---
+
+### DELETE `/profiles/me/avatar`
+
+프로필 사진을 지운다(기본 사진으로). 사진이 없어도 `204 No Content`.
+
+---
+
+### GET `/profiles/{userId}/avatar`
+
+프로필 사진 그림 파일을 그대로 돌려준다. `Content-Type`은 `image/png` 또는 `image/jpeg`, `Cache-Control: private, max-age=86400`.
+- 사진이 없으면 `404 NOT_FOUND` (기본 사진을 쓴다).
 
 ---
 
@@ -486,13 +522,16 @@ Redis에 저장된 Refresh Token을 지운다.
 ```json
 {
   "rankings": [
-    { "rank": 1, "user": { "userId": 12, "nickname": "nullptr", "equippedSkinId": 5 }, "bestMoves": 15 },
-    { "rank": 2, "user": { "userId": 1, "nickname": "debugger", "equippedSkinId": 3 }, "bestMoves": 18 }
+    { "rank": 1, "user": { "userId": 12, "nickname": "nullptr", "equippedSkinId": 5 }, "bestMoves": 15, "clearedAt": "2026-11-23T12:04:00Z" },
+    { "rank": 2, "user": { "userId": 1, "nickname": "debugger", "equippedSkinId": 3 }, "bestMoves": 18, "clearedAt": "2026-11-23T13:41:00Z" }
   ],
-  "me": { "rank": 2, "bestMoves": 18 }
+  "me": { "rank": 2, "bestMoves": 18 },
+  "total": 42
 }
 ```
 - 내가 클리어하지 않았으면 `me`는 `null`이다.
+- `clearedAt`: 첫 클리어 시각 (UTC). 같은 턴이면 이 시각이 빠른 쪽이 앞이다.
+- `total`: 그 범위(`all` = 전체, `friends` = 나 + 친구)에서 클리어한 사람 수. 게임 순위 창의 "전체 · N명", "1위 / N명"에 쓴다.
 
 ---
 

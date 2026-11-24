@@ -11,6 +11,7 @@ import com.seyoung5309.executorserver.domain.profile.dto.MyProfileResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.ProfileDetailResponse;
 import com.seyoung5309.executorserver.domain.profile.dto.UpdateProfileRequest;
 import com.seyoung5309.executorserver.domain.profile.entity.User;
+import com.seyoung5309.executorserver.domain.profile.repository.UserAvatarRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
 import com.seyoung5309.executorserver.domain.stage.repository.StarSummary;
 import com.seyoung5309.executorserver.domain.stage.repository.UserStageRepository;
@@ -34,13 +35,14 @@ public class ProfileService {
     private final UserItemRepository userItemRepository;
     private final UserStageRepository userStageRepository;
     private final FriendRepository friendRepository;
+    private final UserAvatarRepository userAvatarRepository;
 
     public boolean isNicknameAvailable(String nickname) {
         return !userRepository.existsByNickname(nickname.trim());
     }
 
     public MyProfileResponse getMyProfile(Long userId) {
-        return MyProfileResponse.from(findMyProfile(userId));
+        return MyProfileResponse.from(findMyProfile(userId), userAvatarRepository.findUpdatedAt(userId).orElse(null));
     }
 
     /**
@@ -76,7 +78,7 @@ public class ProfileService {
             // 중복 확인과 저장 사이에 다른 사용자가 같은 닉네임을 먼저 가져간 경우
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
-        return MyProfileResponse.from(profile);
+        return MyProfileResponse.from(profile, userAvatarRepository.findUpdatedAt(userId).orElse(null));
     }
 
     /**
