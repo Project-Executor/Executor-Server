@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class StageServiceTest {
 
@@ -153,6 +154,40 @@ class StageServiceTest {
 
         assertThat(detail.operationId()).isNull();
         assertThat(detail.creator().nickname()).isEqualTo("maker");
+    }
+
+    @Test
+    void 게스트_목록은_기록_없이_모든_스테이지가_열려_있다() {
+        List<OperationResponse> result = stageService.getGuestOperations();
+
+        assertThat(result).extracting(OperationResponse::name).containsExactly("Tutorial", "Operation 1", "Operation 2");
+        assertThat(result.get(1).stages()).allSatisfy(stage -> {
+            assertThat(stage.unlocked()).isTrue();
+            assertThat(stage.cleared()).isFalse();
+            assertThat(stage.bestMoves()).isNull();
+        });
+        verifyNoInteractions(userStageRepository);
+    }
+
+    @Test
+    void 게스트_상세는_해금_검사_없이_공식_스테이지를_준다() {
+        when(stageRepository.findById(21L)).thenReturn(Optional.of(s2));
+
+        StageDetailResponse detail = stageService.getGuestStageDetail(21L);
+
+        assertThat(detail.stageId()).isEqualTo(21L);
+        assertThat(detail.operationId()).isEqualTo(2L);
+        verifyNoInteractions(stageAccessService, userStageRepository);
+    }
+
+    @Test
+    void 게스트는_사용자_맵이나_없는_스테이지를_볼_수_없다() {
+        when(stageRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> stageService.getGuestStageDetail(99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_FOUND);
     }
 
     @Test

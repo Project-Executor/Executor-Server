@@ -5,6 +5,7 @@ import com.seyoung5309.executorserver.domain.stage.dto.MyRecordResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.OperationResponse;
 import com.seyoung5309.executorserver.domain.stage.dto.StageDetailResponse;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
+import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.UserSummary;
 import com.seyoung5309.executorserver.domain.stage.dto.StageSummaryResponse;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,12 +54,26 @@ public class StageService {
                 .map(record -> record.getStage().getId())
                 .collect(Collectors.toSet());
         Set<Long> unlockedIds = StageUnlockPolicy.unlockedStageIds(stages, clearedIds);
+        return group(operations, stages, records, unlockedIds::contains);
+    }
 
+    /**
+     * 게스트(로그인하지 않은 전시용 플레이)의 작전·스테이지 목록. 기록은 없고 모든 스테이지를 열린 것으로 보낸다.
+     * 해금은 게임이 PC에 저장한 게스트 기록으로 정한다.
+     */
+    public List<OperationResponse> getGuestOperations() {
+        return group(operationRepository.findAllInPlayOrder(), stageRepository.findAllOfficialInPlayOrder(),
+                Map.of(), stageId -> true);
+    }
+
+    /** 작전별로 스테이지 요약을 묶는다 (스테이지가 없는 작전도 빈 목록으로) */
+    private List<OperationResponse> group(List<Operation> operations, List<Stage> stages, Map<Long, UserStage> records,
+                                          Predicate<Long> unlocked) {
         Map<Long, List<StageSummaryResponse>> stagesByOperation = new LinkedHashMap<>();
         for (Stage stage : stages) {
             stagesByOperation
                     .computeIfAbsent(stage.getOperation().getId(), id -> new ArrayList<>())
-                    .add(StageSummaryResponse.of(stage, records.get(stage.getId()), unlockedIds.contains(stage.getId())));
+                    .add(StageSummaryResponse.of(stage, records.get(stage.getId()), unlocked.test(stage.getId())));
         }
 
         return operations.stream()
@@ -86,6 +102,29 @@ public class StageService {
                 stage.getRewardCoin(),
                 mapDataParser.parse(stage.getMapData()),
                 MyRecordResponse.of(stage, record)
+        );
+    }
+
+    /**
+     * 게스트의 스테이지 상세: 공식 스테이지만, 해금 검사 없이. 사용자 맵은 로그인해야 볼 수 있다.
+     *
+     * @throws BusinessException NOT_FOUND (없거나 사용자 맵)
+     */
+    public StageDetailResponse getGuestStageDetail(Long stageId) {
+        Stage stage = stageRepository.findById(stageId)
+                .filter(Stage::isOfficial)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "스테이지를 찾을 수 없습니다."));
+        return new StageDetailResponse(
+                stage.getId(),
+                stage.getOperation().getId(),
+                stage.getStageNo(),
+                stage.getStageType(),
+                stage.getTitle(),
+                null,
+                stage.getParMoves(),
+                stage.getRewardCoin(),
+                mapDataParser.parse(stage.getMapData()),
+                MyRecordResponse.of(stage, null)
         );
     }
 
