@@ -486,13 +486,16 @@ Redis에 저장된 Refresh Token을 지운다.
 ```json
 {
   "rankings": [
-    { "rank": 1, "user": { "userId": 12, "nickname": "nullptr", "equippedSkinId": 5 }, "bestMoves": 15 },
-    { "rank": 2, "user": { "userId": 1, "nickname": "debugger", "equippedSkinId": 3 }, "bestMoves": 18 }
+    { "rank": 1, "user": { "userId": 12, "nickname": "nullptr", "equippedSkinId": 5 }, "bestMoves": 15, "clearedAt": "2026-11-23T12:04:00Z" },
+    { "rank": 2, "user": { "userId": 1, "nickname": "debugger", "equippedSkinId": 3 }, "bestMoves": 18, "clearedAt": "2026-11-23T13:41:00Z" }
   ],
-  "me": { "rank": 2, "bestMoves": 18 }
+  "me": { "rank": 2, "bestMoves": 18 },
+  "total": 42
 }
 ```
 - 내가 클리어하지 않았으면 `me`는 `null`이다.
+- `clearedAt`: 첫 클리어 시각 (UTC). 같은 턴이면 이 시각이 빠른 쪽이 앞이다.
+- `total`: 그 범위(`all` = 전체, `friends` = 나 + 친구)에서 클리어한 사람 수. 게임 순위 창의 "전체 · N명", "1위 / N명"에 쓴다.
 
 ---
 

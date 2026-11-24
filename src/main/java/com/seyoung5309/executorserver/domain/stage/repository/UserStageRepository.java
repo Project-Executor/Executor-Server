@@ -79,7 +79,7 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
      */
     @Query("""
             select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
-                us.user.id, p.nickname, skin.id, us.bestMoves)
+                us.user.id, p.nickname, skin.id, us.bestMoves, us.firstClearedAt)
             from UserStage us, User p
             left join p.equippedSkin skin
             where p.userId = us.user.id
@@ -89,10 +89,20 @@ public interface UserStageRepository extends JpaRepository<UserStage, Long> {
             """)
     List<RankingRow> findRanking(@Param("stageId") Long stageId, Pageable pageable);
 
+    /** 스테이지를 클리어한 사람 수 (순위 창의 "전체 · N명") */
+    long countByStageIdAndFirstClearedAtIsNotNull(Long stageId);
+
+    /** 지정한 사용자들 중 스테이지를 클리어한 사람 수 */
+    @Query("""
+            select count(us) from UserStage us
+            where us.stage.id = :stageId and us.firstClearedAt is not null and us.user.id in :userIds
+            """)
+    long countClearedAmong(@Param("stageId") Long stageId, @Param("userIds") Collection<Long> userIds);
+
     /** 지정한 사용자들(나 + 친구) 안에서의 스테이지 순위 */
     @Query("""
             select new com.seyoung5309.executorserver.domain.stage.repository.RankingRow(
-                us.user.id, p.nickname, skin.id, us.bestMoves)
+                us.user.id, p.nickname, skin.id, us.bestMoves, us.firstClearedAt)
             from UserStage us, User p
             left join p.equippedSkin skin
             where p.userId = us.user.id

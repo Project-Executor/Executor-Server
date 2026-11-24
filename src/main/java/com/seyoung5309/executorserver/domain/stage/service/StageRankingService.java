@@ -37,12 +37,15 @@ public class StageRankingService {
 
         Set<Long> members = null;
         List<RankingRow> rows;
+        long total;
         if (scope == RankingScope.FRIENDS) {
             members = new HashSet<>(friendRepository.findFriendIds(userId));
             members.add(userId);
             rows = userStageRepository.findRankingAmong(stageId, members, top);
+            total = userStageRepository.countClearedAmong(stageId, members);
         } else {
             rows = userStageRepository.findRanking(stageId, top);
+            total = userStageRepository.countByStageIdAndFirstClearedAtIsNotNull(stageId);
         }
 
         List<RankingResponse.Entry> entries = new ArrayList<>();
@@ -51,10 +54,11 @@ public class StageRankingService {
             entries.add(new RankingResponse.Entry(
                     i + 1,
                     new UserSummary(row.userId(), row.nickname(), row.equippedSkinId()),
-                    row.bestMoves()));
+                    row.bestMoves(),
+                    row.firstClearedAt()));
         }
 
-        return new RankingResponse(entries, myRank(userId, stageId, members));
+        return new RankingResponse(entries, myRank(userId, stageId, members), total);
     }
 
     /** @param members null이면 전체 기준 */

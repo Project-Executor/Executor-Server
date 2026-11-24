@@ -44,19 +44,23 @@ class StageRankingServiceTest {
     }
 
     @Test
-    void 전체_순위는_조회된_순서대로_1부터_번호를_붙인다() {
+    void 전체_순위는_조회된_순서대로_1부터_번호를_붙이고_클리어_시각과_전체_인원을_담는다() {
+        Instant t1 = Instant.parse("2026-11-23T12:04:00Z");
+        Instant t2 = Instant.parse("2026-11-23T13:41:00Z");
         when(userStageRepository.findRanking(eq(10L), any())).thenReturn(List.of(
-                new RankingRow(12L, "nullptr", 5L, 15),
-                new RankingRow(1L, "debugger", null, 18)));
+                new RankingRow(12L, "nullptr", 5L, 15, t1),
+                new RankingRow(1L, "debugger", null, 18, t2)));
+        when(userStageRepository.countByStageIdAndFirstClearedAtIsNotNull(10L)).thenReturn(42L);
         when(userStageRepository.findByUserIdAndStageId(1L, 10L)).thenReturn(Optional.of(cleared(stage, 18, false)));
         when(userStageRepository.countAhead(eq(10L), eq(18), any(Instant.class), eq(1L))).thenReturn(1L);
 
         RankingResponse response = service.getRanking(1L, 10L, RankingScope.ALL, 20);
 
         assertThat(response.rankings()).containsExactly(
-                new RankingResponse.Entry(1, new UserSummary(12L, "nullptr", 5L), 15),
-                new RankingResponse.Entry(2, new UserSummary(1L, "debugger", null), 18));
+                new RankingResponse.Entry(1, new UserSummary(12L, "nullptr", 5L), 15, t1),
+                new RankingResponse.Entry(2, new UserSummary(1L, "debugger", null), 18, t2));
         assertThat(response.me()).isEqualTo(new RankingResponse.MyRank(2, 18));
+        assertThat(response.total()).isEqualTo(42L);
     }
 
     @Test
@@ -88,6 +92,7 @@ class StageRankingServiceTest {
         UserStage mine = cleared(stage, 18, false);
         when(userStageRepository.findByUserIdAndStageId(1L, 10L)).thenReturn(Optional.of(mine));
         when(userStageRepository.countAheadAmong(eq(10L), anyCollection(), eq(18), any(Instant.class), eq(1L))).thenReturn(0L);
+        when(userStageRepository.countClearedAmong(eq(10L), anyCollection())).thenReturn(2L);
 
         RankingResponse response = service.getRanking(1L, 10L, RankingScope.FRIENDS, 20);
 
@@ -95,6 +100,8 @@ class StageRankingServiceTest {
         verify(userStageRepository).findRankingAmong(eq(10L), members.capture(), any());
         assertThat(members.getValue()).containsExactlyInAnyOrder(1L, 12L, 30L);
         assertThat(response.me()).isEqualTo(new RankingResponse.MyRank(1, 18));
+        assertThat(response.total()).isEqualTo(2L);
+        verify(userStageRepository, never()).countByStageIdAndFirstClearedAtIsNotNull(anyLong());
         verify(userStageRepository, never()).findRanking(anyLong(), any());
     }
 
