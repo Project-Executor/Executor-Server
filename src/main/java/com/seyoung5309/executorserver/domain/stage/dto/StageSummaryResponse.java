@@ -4,7 +4,10 @@ import com.seyoung5309.executorserver.domain.stage.entity.Stage;
 import com.seyoung5309.executorserver.domain.stage.entity.StageType;
 import com.seyoung5309.executorserver.domain.stage.entity.UserStage;
 
-/** 작전 목록 안의 스테이지 한 칸 (내 진행도 포함) */
+/**
+ * 작전 목록 안의 스테이지 한 칸 (내 진행도 포함).
+ * boardX/boardY: 스테이지 선택 기판 위 노드 가운데 위치(0~1, 왼쪽 위 기준). null이면 게임이 자동 배치한다.
+ */
 public record StageSummaryResponse(
         Long stageId,
         Integer stageNo,
@@ -16,7 +19,9 @@ public record StageSummaryResponse(
         boolean cleared,
         StarsResponse stars,
         Integer bestMoves,
-        int playCount
+        int playCount,
+        Double boardX,
+        Double boardY
 ) {
 
     /** @param record 기록이 없으면 null */
@@ -32,7 +37,9 @@ public record StageSummaryResponse(
                 record != null && record.isCleared(),
                 StarsResponse.of(stage, record),
                 record == null ? null : record.getBestMoves(),
-                record == null ? 0 : record.getPlayCount()
+                record == null ? 0 : record.getPlayCount(),
+                stage.getBoardX(),
+                stage.getBoardY()
         );
     }
 }

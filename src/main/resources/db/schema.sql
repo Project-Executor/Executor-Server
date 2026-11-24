@@ -227,6 +227,8 @@ CREATE TABLE stages (
     par_moves     INT            NOT NULL                COMMENT '기준 턴 수 (별 2 조건)',
     reward_coin   INT            NOT NULL DEFAULT 0      COMMENT '첫 클리어 보상 코인 (사용자 맵은 0)',
     is_public     BOOLEAN        NOT NULL DEFAULT FALSE  COMMENT '공개 여부 (사용자 맵은 제작자 클리어 후 공개 가능)',
+    board_x       DOUBLE             NULL                COMMENT '스테이지 선택 기판 가로 위치 (0~1, NULL이면 자동 배치)',
+    board_y       DOUBLE             NULL                COMMENT '스테이지 선택 기판 세로 위치 (0~1, NULL이면 자동 배치)',
     created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성일',
     updated_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
 
@@ -238,6 +240,8 @@ CREATE TABLE stages (
     CONSTRAINT chk_stages_stage_no CHECK (stage_no IS NULL OR stage_no >= 1),
     CONSTRAINT chk_stages_par_moves CHECK (par_moves >= 1),
     CONSTRAINT chk_stages_reward_coin CHECK (reward_coin >= 0),
+    -- 위치는 둘 다 있거나 둘 다 없다
+    CONSTRAINT chk_stages_board CHECK ((board_x IS NULL AND board_y IS NULL) OR (board_x BETWEEN 0 AND 1 AND board_y BETWEEN 0 AND 1)),
     -- 작전을 지울 때 소속 공식 스테이지가 함께 사라지지 않도록 RESTRICT
     CONSTRAINT fk_stages_operation
         FOREIGN KEY (operation_id) REFERENCES operations (id) ON DELETE RESTRICT,

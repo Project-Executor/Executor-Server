@@ -3,6 +3,7 @@ package com.seyoung5309.executorserver.domain.admin.controller;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationTreeResponse;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminStageBoardRequest;
 import com.seyoung5309.executorserver.domain.admin.service.AdminOperationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,6 +41,15 @@ public class AdminOperationController {
     public AdminOperationResponse update(@PathVariable Long operationId,
                                          @Valid @RequestBody AdminOperationRequest request) {
         return adminOperationService.update(operationId, request);
+    }
+
+    @Operation(summary = "스테이지 선택 화면 배치",
+            description = "작전 안 스테이지 노드 위치(0~1 비율, 노드 가운데)를 한 번에 저장한다. 목록에 없는 스테이지는 그대로, "
+                    + "x·y가 둘 다 null이면 자동 배치. 다른 작전의 스테이지나 중복은 400 INVALID_INPUT. 바뀐 작전(스테이지 포함)을 돌려준다.")
+    @PutMapping("/{operationId}/board")
+    public AdminOperationTreeResponse placeStages(@PathVariable Long operationId,
+                                                  @Valid @RequestBody AdminStageBoardRequest request) {
+        return adminOperationService.placeStages(operationId, request);
     }
 
     @Operation(summary = "작전 삭제", description = "소속 스테이지가 있으면 409 OPERATION_HAS_STAGES.")

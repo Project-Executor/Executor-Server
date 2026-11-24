@@ -3,6 +3,7 @@ package com.seyoung5309.executorserver.domain.admin.service;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationRequest;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationResponse;
 import com.seyoung5309.executorserver.domain.admin.dto.AdminOperationTreeResponse;
+import com.seyoung5309.executorserver.domain.admin.dto.AdminStageBoardRequest;
 import com.seyoung5309.executorserver.domain.stage.entity.Layer;
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
@@ -16,8 +17,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +44,34 @@ public class AdminOperationService {
         return operationRepository.findAllInPlayOrder().stream()
                 .map(o -> AdminOperationTreeResponse.of(o, stagesByOperation.getOrDefault(o.getId(), List.of())))
                 .toList();
+    }
+
+    /**
+     * 작전 안 스테이지들의 스테이지 선택 기판 위치를 바꾼다. 목록에 없는 스테이지는 그대로 둔다.
+     *
+     * @throws BusinessException NOT_FOUND(작전), INVALID_INPUT(다른 작전의 스테이지, 같은 스테이지 두 번, x·y 중 하나만 있음)
+     */
+    public AdminOperationTreeResponse placeStages(Long operationId, AdminStageBoardRequest request) {
+        Operation operation = find(operationId);
+        List<Stage> stages = stageRepository.findByOperationIdOrderByStageNoAsc(operationId);
+        Map<Long, Stage> byId = stages.stream().collect(Collectors.toMap(Stage::getId, Function.identity()));
+
+        Set<Long> seen = new HashSet<>();
+        for (AdminStageBoardRequest.Position p : request.positions()) {
+            Stage stage = byId.get(p.stageId());
+            if (stage == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "스테이지 " + p.stageId() + "는 이 작전의 스테이지가 아닙니다.");
+            }
+            if (!seen.add(p.stageId())) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "스테이지 " + p.stageId() + "가 두 번 들어 있습니다.");
+            }
+            if ((p.x() == null) != (p.y() == null)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "x와 y는 둘 다 보내거나 둘 다 비워야 합니다.");
+            }
+            stage.placeOnBoard(p.x(), p.y());
+        }
+        stageRepository.flush();
+        return AdminOperationTreeResponse.of(operation, stages);
     }
 
     /** @throws BusinessException NOT_FOUND(레이어), DUPLICATE_VALUE(이름 또는 레이어 안 순서 중복) */
