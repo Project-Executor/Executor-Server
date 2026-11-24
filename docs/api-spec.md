@@ -144,6 +144,8 @@
 |  | GET | `/notices/{noticeId}` 🔓 | 공지 상세 | NOTICE-02 |
 | 단어 목록 | GET | `/word-lists/{wordListId}` 🔓 | 타자 해킹 단어 | |
 | 인물 | GET | `/characters` 🔓 | 대화창 이름표 색·일러스트 폴더 | |
+| 방명록 | GET | `/guestbook/latest` 🔓 | 최신 방명록 + 오늘·전체 수 | |
+|  | POST | `/guestbook` 🔓 | 방명록 남기기 (토큰이 있으면 하루 첫 글 코인 10) | |
 | 관리자 🛡️ | | `/admin/**` | 아래 9장 참고 | ADMIN-01~04, MAIL-05, REPORT-04, NOTICE-03 |
 
 ---
@@ -1114,6 +1116,53 @@ s.length(); // 여기서 예외",
 
 ---
 
+## 8-4. 방명록 🔓
+
+전시에서 로그인 없이 남기는 방명록. 게임 메인 화면의 위젯(guestbook.log)과 guestbook.exe 창(채팅)이 몇 초마다 다시 부른다.
+
+### GET `/guestbook/latest?limit=30` 🔓
+
+`limit` 1~50 (기본 30).
+
+**Response** `200 OK`
+```json
+{
+  "entries": [
+    { "id": 41, "name": "정하은", "message": "카시아 대사 너무 맛있다…", "createdAt": "2026-11-28T05:23:00Z" },
+    { "id": 42, "name": "최우진", "message": "랭킹 1등 찍고 갑니다 ★★★", "createdAt": "2026-11-28T05:30:00Z" }
+  ],
+  "today": 42,
+  "total": 128
+}
+```
+- `entries`: 최신 limit개를 **오래된 것부터** (채팅처럼 아래로 쌓이는 순서)
+- `today`: 오늘(한국 시간) 남긴 글 수, `total`: 전체 글 수
+
+### POST `/guestbook` 🔓
+
+**Request**
+```json
+{ "name": "이밤", "message": "와 주셔서 감사합니다!", "deviceId": "3f2a...e1" }
+```
+| 필드 | 규칙 |
+| --- | --- |
+| name | 앞뒤 공백을 지우고 1~10자 |
+| message | 앞뒤 공백을 지우고 1~100자. 줄바꿈 같은 제어 문자는 공백으로 |
+| deviceId | 선택. 게임이 PC마다 만든 임의 값. **같은 deviceId는 30초에 한 번** (`429 MESSAGE_SPAM`) |
+
+- 욕설·전화번호·이메일·주민번호 꼴은 `*`로 가려서 저장한다 (이름·내용 모두).
+- `Authorization` 토큰을 보내면(로그인) **그날(한국 시간) 첫 글에 코인 10개**. 토큰이 없거나 만료됐으면 글만 남고 보상은 없다.
+
+**Response** `201 Created`
+```json
+{ "entry": { "id": 43, "name": "이밤", "message": "와 주셔서 감사합니다!", "createdAt": "2026-11-28T05:45:00Z" }, "rewardCoin": 10, "totalCoin": 190 }
+```
+- `rewardCoin`: 이번에 받은 코인(0 또는 10), `totalCoin`: 받았으면 받은 뒤 보유 코인, 아니면 `null`
+
+**Error**: `400 INVALID_INPUT`, `429 MESSAGE_SPAM`
+
+---
+
 ## 9. 관리자 API 🛡️
 
 모든 관리자 API는 `ADMIN` 권한이 필요하다. 요청 본문은 DB 컬럼을 camelCase로 바꾼 형식을 따른다.
@@ -1139,6 +1188,8 @@ s.length(); // 여기서 예외",
 | GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, boardX, boardY, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
+| GET | `/admin/guestbook?q=&page=&size=` | 방명록 목록 | 최신순, 이름·내용 검색, size 1~50 |
+| DELETE | `/admin/guestbook/{id}` | 방명록 글 삭제 | 부적절한 글. 없으면 `404` |
 | DELETE | `/admin/events/{stageId}/records/{recordId}` | 이벤트 기록 하나 삭제 | 부적절한 이름 등. 다른 스테이지의 기록이면 `404` |
 | DELETE | `/admin/events/{stageId}/records` | 이벤트 기록 전부 삭제 | 전시 시작 전 초기화. 응답 `{ "deleted": n }` |
 | PUT | `/admin/operations/{id}/board` | 스테이지 선택 화면 배치 | `{ "positions": [{ "stageId": 10, "x": 0.2, "y": 0.5 }] }`. x·y는 0~1(노드 가운데, 왼쪽 위 기준), 둘 다 `null`이면 자동 배치. 목록에 없는 스테이지는 그대로. 다른 작전의 스테이지·중복·한쪽만 `null`이면 `400 INVALID_INPUT`. 응답은 위 목록의 작전 한 개 |
