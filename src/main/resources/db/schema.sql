@@ -104,6 +104,20 @@ CREATE TABLE users (
         FOREIGN KEY (equipped_delta_id) REFERENCES items (id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '사용자';
 
+-- 프로필 사진 (없으면 행이 없고 게임은 기본 실루엣을 쓴다). users와 1:1이지만 그림이 커서 따로 둔다
+--  - 프로필을 읽을 때마다 그림까지 읽지 않도록 분리. 게임이 256x256 PNG로 잘라 보낸다
+CREATE TABLE user_avatars (
+    user_id     BIGINT      NOT NULL COMMENT '사용자 ID',
+    image       MEDIUMBLOB  NOT NULL COMMENT 'PNG 또는 JPEG (512KB 이하)',
+    content_type VARCHAR(20) NOT NULL COMMENT 'image/png 또는 image/jpeg',
+    updated_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '바꾼 시각 (게임의 그림 캐시 버전)',
+
+    PRIMARY KEY (user_id),
+    CONSTRAINT fk_user_avatars_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '프로필 사진';
+
+
 
 -- =====================================================================
 -- 2. 친구 / 메시지
