@@ -68,6 +68,8 @@ public class SecurityConfig {
                         // 타자 해킹 단어는 오프라인 테스트에서도 받을 수 있게 조회만 공개
                         .requestMatchers(HttpMethod.GET, "/api/word-lists/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/characters").permitAll()
+                        // 게스트 플레이(전시용): 공식 작전·스테이지 조회만 공개. 결과 저장·순위는 로그인해야 한다
+                        .requestMatchers(HttpMethod.GET, "/api/guest/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // 401(인증 없음) / 403(권한 없음)을 공통 JSON 형식으로 응답

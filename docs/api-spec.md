@@ -104,6 +104,8 @@
 |  | GET | `/profiles/{userId}` | 다른 사용자 프로필 | PROFILE-05 |
 |  | GET | `/profiles/search` | 닉네임 검색 | PROFILE-06 |
 | 스테이지 | GET | `/operations` | 작전·스테이지 목록과 내 진행도 | STAGE-01 |
+|  | GET | `/guest/operations` 🔓 | 게스트용 작전·스테이지 목록 (기록 없음) | |
+|  | GET | `/guest/stages/{stageId}` 🔓 | 게스트용 스테이지 상세 (공식만) | |
 |  | GET | `/stages/{stageId}` | 스테이지 상세 | STAGE-02, 03 |
 |  | POST | `/stages/{stageId}/results` | 플레이 결과 제출 | STAGE-04~08, GUIDE-01 |
 |  | GET | `/stages/{stageId}/rankings` | 최소 턴 순위 | STAGE-09 |
@@ -532,6 +534,21 @@ Redis에 저장된 Refresh Token을 지운다.
 - 내가 클리어하지 않았으면 `me`는 `null`이다.
 - `clearedAt`: 첫 클리어 시각 (UTC). 같은 턴이면 이 시각이 빠른 쪽이 앞이다.
 - `total`: 그 범위(`all` = 전체, `friends` = 나 + 친구)에서 클리어한 사람 수. 게임 순위 창의 "전체 · N명", "1위 / N명"에 쓴다.
+
+---
+
+## 4-1. 게스트로 플레이 🔓
+
+전시 등에서 **로그인 없이** 플레이할 때 쓴다. 게임은 [게스트로 플레이]로 들어오면 서버에 닿을 경우 이 API로 관리자가 등록한 공식 스테이지를 받고,
+닿지 않으면 게임에 들어 있는 맵을 쓴다. 진행·해금·기록은 게임이 PC에만 저장하고, 결과 제출·순위·보상은 없다(로그인 필요).
+
+### GET `/guest/operations` 🔓
+
+`GET /operations`와 같은 형식. 기록 필드는 비어 있고(`cleared: false`, `bestMoves: null`, 별 없음) **모든 스테이지가 `unlocked: true`** 다. 해금은 게임이 정한다.
+
+### GET `/guest/stages/{stageId}` 🔓
+
+`GET /stages/{stageId}`와 같은 형식이고 `myRecord`는 빈 기록이다. **공식 스테이지만** 해금 검사 없이 돌려준다. 사용자 맵이나 없는 ID는 `404 NOT_FOUND`.
 
 ---
 
