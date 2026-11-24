@@ -106,6 +106,8 @@
 | 스테이지 | GET | `/operations` | 작전·스테이지 목록과 내 진행도 | STAGE-01 |
 |  | GET | `/guest/operations` 🔓 | 게스트용 작전·스테이지 목록 (기록 없음) | |
 |  | GET | `/guest/stages/{stageId}` 🔓 | 게스트용 스테이지 상세 (공식만) | |
+|  | GET | `/events/{stageId}/records` 🔓 | 이벤트 스테이지 순위 | |
+|  | POST | `/events/{stageId}/records` 🔓 | 이벤트 기록 올리기 (이름 + 점수) | |
 |  | GET | `/stages/{stageId}` | 스테이지 상세 | STAGE-02, 03 |
 |  | POST | `/stages/{stageId}/results` | 플레이 결과 제출 | STAGE-04~08, GUIDE-01 |
 |  | GET | `/stages/{stageId}/rankings` | 최소 턴 순위 | STAGE-09 |
@@ -552,6 +554,58 @@ Redis에 저장된 Refresh Token을 지운다.
 ### GET `/guest/stages/{stageId}` 🔓
 
 `GET /stages/{stageId}`와 같은 형식이고 `myRecord`는 빈 기록이다. **공식 스테이지만** 해금 검사 없이 돌려준다. 사용자 맵이나 없는 ID는 `404 NOT_FOUND`.
+
+---
+
+## 4-2. 이벤트 스테이지 🔓
+
+전시에서 모두가 참여하는 순위 겨루기. 관리자가 공식 스테이지의 종류를 `EVENT_TURNS`(턴수) 또는 `EVENT_TYPING`(타자)로 만든다.
+
+- 이벤트 스테이지는 **늘 열려 있고** 해금 순서에 끼지 않는다 (`unlocked: true`, 뒤 스테이지는 이벤트 앞 스테이지를 깨면 열린다).
+- 일반 결과(`POST /stages/{id}/results`)는 받지 않는다(`400 INVALID_INPUT`). 별·코인·보상도 없다.
+- 끝나면 게임이 이름을 받아 아래 API로 올린다. **로그인 없이** 누구나 올릴 수 있다.
+- 턴수 이벤트: 맵을 깨면 `score` = 기록 턴(구간 최고 기록의 합). **적을수록 위**.
+- 타자 이벤트: 맵 대신 `map_data.event`(`wordListId`, `timeLimit` 초)를 쓴다. 단어 목록에서 끝없이 나오는 단어를 제한 시간 동안 치고 `score` = 맞게 친 단어 수. **많을수록 위**.
+- 같은 점수는 같은 순위이고, 먼저 올린 기록이 위에 보인다.
+
+### GET `/events/{stageId}/records?size=20` 🔓
+
+`size` 1~100 (기본 20).
+
+**Response** `200 OK`
+```json
+{
+  "stageId": 31,
+  "title": "전시 타자전",
+  "stageType": "EVENT_TYPING",
+  "total": 42,
+  "rankings": [
+    { "recordId": 7, "rank": 1, "name": "민수", "score": 58, "createdAt": "2026-11-25T03:10:00Z" },
+    { "recordId": 9, "rank": 1, "name": "지은", "score": 58, "createdAt": "2026-11-25T03:12:00Z" },
+    { "recordId": 2, "rank": 3, "name": "aaa", "score": 51, "createdAt": "2026-11-25T02:58:00Z" }
+  ]
+}
+```
+
+**Error**: `404 NOT_FOUND` (이벤트 스테이지가 아님)
+
+### POST `/events/{stageId}/records` 🔓
+
+**Request**
+```json
+{ "name": "민수", "score": 58 }
+```
+| 필드 | 규칙 |
+| --- | --- |
+| name | 앞뒤 공백을 지우고 1~12자, 줄바꿈 같은 제어 문자 불가. **같은 이벤트에 같은 이름(대소문자 무시)이 있으면 `409 DUPLICATE_VALUE` "이미 사용 중인 이름입니다."** |
+| score | 턴수 이벤트는 1 이상, 타자 이벤트는 0~1000 |
+
+**Response** `201 Created`
+```json
+{ "recordId": 43, "name": "민수", "score": 58, "rank": 1, "total": 43 }
+```
+
+**Error**: `400 INVALID_INPUT`, `404 NOT_FOUND`, `409 DUPLICATE_VALUE`
 
 ---
 
@@ -1085,6 +1139,8 @@ s.length(); // 여기서 예외",
 | GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, boardX, boardY, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
+| DELETE | `/admin/events/{stageId}/records/{recordId}` | 이벤트 기록 하나 삭제 | 부적절한 이름 등. 다른 스테이지의 기록이면 `404` |
+| DELETE | `/admin/events/{stageId}/records` | 이벤트 기록 전부 삭제 | 전시 시작 전 초기화. 응답 `{ "deleted": n }` |
 | PUT | `/admin/operations/{id}/board` | 스테이지 선택 화면 배치 | `{ "positions": [{ "stageId": 10, "x": 0.2, "y": 0.5 }] }`. x·y는 0~1(노드 가운데, 왼쪽 위 기준), 둘 다 `null`이면 자동 배치. 목록에 없는 스테이지는 그대로. 다른 작전의 스테이지·중복·한쪽만 `null`이면 `400 INVALID_INPUT`. 응답은 위 목록의 작전 한 개 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
 | GET | `/admin/stages/{id}` | 공식 스테이지 상세 | |

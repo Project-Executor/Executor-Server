@@ -221,7 +221,7 @@ CREATE TABLE stages (
     operation_id  BIGINT             NULL                COMMENT '작전 ID (사용자 맵은 NULL)',
     stage_no      INT                NULL                COMMENT '작전 내 순서 (사용자 맵은 NULL)',
     creator_id    BIGINT             NULL                COMMENT '제작자 ID (공식 스테이지는 NULL)',
-    stage_type    ENUM('TUTORIAL', 'NORMAL', 'BOSS') NOT NULL DEFAULT 'NORMAL' COMMENT '스테이지 종류',
+    stage_type    ENUM('TUTORIAL', 'NORMAL', 'BOSS', 'EVENT_TURNS', 'EVENT_TYPING') NOT NULL DEFAULT 'NORMAL' COMMENT '스테이지 종류 (EVENT_*: 전시용 이벤트, 이름을 적어 event_records에 순위)',
     title         VARCHAR(100)   NOT NULL                COMMENT '스테이지 이름',
     map_data      JSON           NOT NULL                COMMENT '맵 데이터',
     par_moves     INT            NOT NULL                COMMENT '기준 턴 수 (별 2 조건)',
@@ -470,6 +470,24 @@ CREATE TABLE notices (
     PRIMARY KEY (id),
     KEY idx_notices_list (is_visible, is_pinned, published_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '공지사항';
+
+
+-- 이벤트 스테이지 기록 (전시용, 로그인 없이 이름만). 같은 스테이지에서 이름은 겹칠 수 없다 (정렬 규칙상 대소문자 무시)
+--  - score: 턴수 이벤트(EVENT_TURNS)는 턴(적을수록 위), 타자 이벤트(EVENT_TYPING)는 친 단어 수(많을수록 위)
+CREATE TABLE event_records (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    stage_id    BIGINT       NOT NULL                COMMENT '이벤트 스테이지 ID',
+    name        VARCHAR(20)  NOT NULL                COMMENT '순위에 보일 이름 (1~12자)',
+    score       INT          NOT NULL                COMMENT '턴수 이벤트: 턴, 타자 이벤트: 친 단어 수',
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '올린 시각 (같은 점수면 먼저 올린 기록이 위)',
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_event_records_name (stage_id, name),
+    KEY idx_event_records_rank (stage_id, score, created_at),
+    CONSTRAINT chk_event_records_score CHECK (score >= 0),
+    CONSTRAINT fk_event_records_stage
+        FOREIGN KEY (stage_id) REFERENCES stages (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '이벤트 스테이지 기록';
 
 
 -- =====================================================================

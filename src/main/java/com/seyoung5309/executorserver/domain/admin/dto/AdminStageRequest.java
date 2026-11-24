@@ -21,7 +21,7 @@ public record AdminStageRequest(
         @Min(value = 1, message = "stageNo는 1 이상이어야 합니다.")
         Integer stageNo,
 
-        @NotNull(message = "stageType을 입력해 주세요. (TUTORIAL, NORMAL, BOSS)")
+        @NotNull(message = "stageType을 입력해 주세요. (TUTORIAL, NORMAL, BOSS, EVENT_TURNS, EVENT_TYPING)")
         StageType stageType,
 
         @NotBlank(message = "title을 입력해 주세요.")

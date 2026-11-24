@@ -61,6 +61,9 @@ public class StageResultService {
         }
 
         Stage stage = stageAccessService.getPlayableStage(userId, stageId);
+        if (stage.getStageType().isEvent()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "이벤트 스테이지 기록은 이름을 적어 이벤트 순위에 올립니다 (POST /api/events/{stageId}/records).");
+        }
         Instant now = clock.instant();
 
         userStageRepository.upsertPlay(userId, stageId, now);
