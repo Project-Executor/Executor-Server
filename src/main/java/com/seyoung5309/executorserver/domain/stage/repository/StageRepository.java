@@ -40,6 +40,9 @@ public interface StageRepository extends JpaRepository<Stage, Long> {
 
     boolean existsByOperationId(Long operationId);
 
+    /** 작전의 공식 스테이지 (번호 순). 사용자 맵은 작전이 없으므로 섞이지 않는다 */
+    List<Stage> findByOperationIdOrderByStageNoAsc(Long operationId);
+
     /** 같은 작전에 같은 번호의 스테이지가 있는지 (자기 자신 제외. 새로 만들 때는 excludeId = 0) */
     boolean existsByOperationIdAndStageNoAndIdNot(Long operationId, Integer stageNo, Long excludeId);
 }

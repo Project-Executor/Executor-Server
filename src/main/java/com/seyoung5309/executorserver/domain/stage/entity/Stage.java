@@ -61,6 +61,13 @@ public class Stage {
     @Column(nullable = false)
     private boolean isPublic;
 
+    /** 스테이지 선택 기판 위 노드 가운데 위치 (0~1, 왼쪽 위 기준). 둘 다 NULL이면 게임이 자동 배치한다 (공식 스테이지만 쓴다) */
+    @Column(name = "board_x") // 이름 규칙이 boardX를 boardx로 바꾸므로 직접 적는다
+    private Double boardX;
+
+    @Column(name = "board_y")
+    private Double boardY;
+
     @CreatedAtSeconds
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -106,6 +113,12 @@ public class Stage {
         this.title = title;
         this.mapData = mapData;
         this.parMoves = parMoves;
+    }
+
+    /** 스테이지 선택 기판 위치를 정한다. 둘 다 null이면 자동 배치로 되돌린다. 범위 검사는 서비스에서 한다. */
+    public void placeOnBoard(Double x, Double y) {
+        this.boardX = x;
+        this.boardY = y;
     }
 
     /** 공개 여부를 바꾼다. 공개 조건(제작자 클리어) 검사는 서비스에서 한다. */

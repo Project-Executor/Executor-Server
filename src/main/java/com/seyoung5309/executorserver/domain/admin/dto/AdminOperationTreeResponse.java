@@ -12,7 +12,7 @@ import java.util.List;
  *
  * @param sortOrder 레이어 안에서의 순서
  * @param layerId   소속 레이어
- * @param stages    스테이지 번호 순
+ * @param stages    스테이지 번호 순. boardX/boardY는 스테이지 선택 기판 위치(0~1), null이면 자동 배치
  */
 public record AdminOperationTreeResponse(
         Long operationId,
@@ -29,11 +29,13 @@ public record AdminOperationTreeResponse(
             String title,
             int parMoves,
             int rewardCoin,
+            Double boardX,
+            Double boardY,
             Instant updatedAt
     ) {
         public static StageSummary from(Stage stage) {
             return new StageSummary(stage.getId(), stage.getStageNo(), stage.getStageType(), stage.getTitle(),
-                    stage.getParMoves(), stage.getRewardCoin(), stage.getUpdatedAt());
+                    stage.getParMoves(), stage.getRewardCoin(), stage.getBoardX(), stage.getBoardY(), stage.getUpdatedAt());
         }
     }
 

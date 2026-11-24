@@ -410,7 +410,9 @@ Redis에 저장된 Refresh Token을 지운다.
         "cleared": true,
         "stars": { "clear": true, "par": false, "hidden": false, "count": 1, "max": 1 },
         "bestMoves": 34,
-        "playCount": 2
+        "playCount": 2,
+        "boardX": 0.18,
+        "boardY": 0.55
       }
     ]
   }
@@ -418,6 +420,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ```
 - 잠긴 스테이지는 `unlocked: false`이고, 기록 필드는 `false` 또는 `null`이다.
 - 튜토리얼은 `max: 1`, 나머지 스테이지는 `max: 3`이다.
+- `boardX`, `boardY`: 스테이지 선택 화면 기판 위 노드 가운데 위치. 0~1 비율 좌표(왼쪽 위가 0,0)이고, 관리자 웹에서 정한다. `null`이면 게임이 기본 지그재그로 놓는다.
 
 ---
 
@@ -1079,9 +1082,10 @@ s.length(); // 여기서 예외",
 | POST | `/admin/characters` | 인물 등록 (`201`) | `characterKey`(영문 소문자·숫자·`-`·`_` 1~50자), `name`(1~50자), `tagColor`(`#RRGGBB`, 대문자로 저장), `protagonist`(없으면 false). `characterKey`·`name`이 겹치면 `409` |
 | PUT | `/admin/characters/{id}` | 인물 수정 | 등록과 같음 |
 | DELETE | `/admin/characters/{id}` | 인물 삭제 (`204`) | 맵이 쓰고 있어도 지운다 (그 대사는 기본 이름표 색) |
-| GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
+| GET | `/admin/operations` | 작전 전체 목록 | 플레이 순서(레이어 → 작전)대로, 해금과 상관없이 전부. 항목: `operationId`, `name`, `description`, `sortOrder`(레이어 안), `layerId`, `stages[] {stageId, stageNo, stageType, title, parMoves, rewardCoin, boardX, boardY, updatedAt}`(번호 순, 맵 데이터는 `/admin/stages/{id}`에서) |
 | POST | `/admin/operations` | 작전 등록 | `name`, `description`, `sortOrder`(레이어 안에서 겹치면 `409`), `layerId`(필수, 없으면 `404`) |
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
+| PUT | `/admin/operations/{id}/board` | 스테이지 선택 화면 배치 | `{ "positions": [{ "stageId": 10, "x": 0.2, "y": 0.5 }] }`. x·y는 0~1(노드 가운데, 왼쪽 위 기준), 둘 다 `null`이면 자동 배치. 목록에 없는 스테이지는 그대로. 다른 작전의 스테이지·중복·한쪽만 `null`이면 `400 INVALID_INPUT`. 응답은 위 목록의 작전 한 개 |
 | DELETE | `/admin/operations/{id}` | 작전 삭제 | 스테이지가 있으면 `409 OPERATION_HAS_STAGES` |
 | GET | `/admin/stages/{id}` | 공식 스테이지 상세 | |
 | POST | `/admin/stages` | 공식 스테이지 등록 | `operationId`, `stageNo`, `stageType`, `title`, `mapData`, `parMoves`, `rewardCoin` (`isPublic`은 항상 true). `mapData`는 문자열이 아니라 JSON 객체 그대로 보낸다 |
