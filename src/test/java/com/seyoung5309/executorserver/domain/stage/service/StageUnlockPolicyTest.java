@@ -2,6 +2,7 @@ package com.seyoung5309.executorserver.domain.stage.service;
 
 import com.seyoung5309.executorserver.domain.stage.entity.Operation;
 import com.seyoung5309.executorserver.domain.stage.entity.Stage;
+import com.seyoung5309.executorserver.domain.stage.entity.StageType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -50,6 +51,16 @@ class StageUnlockPolicyTest {
 
         assertThat(unlocked).containsExactlyInAnyOrder(10L, 99L, 20L, 21L);
         assertThat(unlocked).doesNotContain(22L);
+    }
+
+    @Test
+    void 이벤트_스테이지는_늘_열려_있고_해금_줄에_끼지_않는다() {
+        Stage event = officialStage(50L, tutorial, 3, StageType.EVENT_TURNS, 10);
+        List<Stage> withEvent = List.of(t1, event, s1, s2, s3);
+
+        // 아무것도 안 깼어도 이벤트는 열림, 튜토리얼을 깨면 이벤트를 건너뛰고 s1이 열림
+        assertThat(StageUnlockPolicy.unlockedStageIds(withEvent, Set.of())).containsExactlyInAnyOrder(10L, 50L);
+        assertThat(StageUnlockPolicy.unlockedStageIds(withEvent, Set.of(10L))).containsExactlyInAnyOrder(10L, 50L, 20L);
     }
 
     @Test

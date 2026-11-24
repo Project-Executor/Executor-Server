@@ -15,6 +15,7 @@ import java.util.Set;
  *   <li>이미 클리어한 스테이지 (관리자가 중간에 스테이지를 끼워 넣어도 깬 스테이지가 다시 잠기지 않도록)</li>
  * </ol>
  * 사용자 맵에는 적용하지 않는다 (공개된 맵은 누구나 플레이).
+ * 이벤트 스테이지(EVENT_*)는 늘 열려 있고 이 줄에 끼지 않는다 (이벤트 뒤 스테이지는 이벤트 앞 스테이지를 깨면 열린다).
  */
 public final class StageUnlockPolicy {
 
@@ -30,6 +31,10 @@ public final class StageUnlockPolicy {
         Set<Long> unlocked = new HashSet<>();
         Long previousId = null;
         for (Stage stage : officialStagesInPlayOrder) {
+            if (stage.getStageType().isEvent()) {
+                unlocked.add(stage.getId());
+                continue;
+            }
             boolean isFirst = previousId == null;
             boolean previousCleared = previousId != null && clearedStageIds.contains(previousId);
             boolean alreadyCleared = clearedStageIds.contains(stage.getId());
