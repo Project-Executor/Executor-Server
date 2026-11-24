@@ -1,7 +1,7 @@
 # Executor(집행자) Server
 
 Unity 퍼즐 게임 **Executor(집행자)** 의 백엔드 API 서버.
-회원·프로필, 스테이지 플레이와 순위, 도감, 상점·메일, 친구·메시지, 사용자 제작 맵, 신고, 공지, 관리자 기능을 제공한다.
+회원·프로필(사진 포함), 스테이지 플레이와 순위, 게스트로 플레이용 공개 조회, 도감, 인물, 상점·메일, 친구·메시지, 사용자 제작 맵, 신고, 공지, 관리자 기능을 제공한다.
 
 | 문서 | 내용 |
 | --- | --- |
@@ -13,7 +13,7 @@ Unity 퍼즐 게임 **Executor(집행자)** 의 백엔드 API 서버.
 | 저장소 | 역할 |
 | --- | --- |
 | **Executor-Server** (여기) | API 서버. `main`에 머지하면 Railway에 자동 배포 |
-| [Executor-Admin](https://github.com/Project-Executor/Executor-Admin) | 관리자 웹 (React). 로컬에서 `npm run dev`로 띄워 쓴다 |
+| [Executor-Admin](https://github.com/Project-Executor/Executor-Admin) | 관리자 웹 (React). `main`에 머지하면 Railway에 배포 (`https://executor-admin-production.up.railway.app`) |
 | [Executor-Game](https://github.com/Project-Executor/Executor-Game) | Unity 6 PC 2D 클라이언트 |
 
 - 배포 주소: `https://executor-server-production-032d.up.railway.app`
@@ -46,9 +46,10 @@ Executor-Server/                  ← 저장소 루트 = Railway Root Directory 
     ├── java/com/seyoung5309/executorserver/
     │   ├── domain/               ← 기능별 패키지 (controller / service / repository / entity / dto)
     │   │   ├── auth              회원가입·로그인·토큰 재발급·탈퇴·계정 정지
-    │   │   ├── profile           프로필·닉네임·장착·검색
-    │   │   ├── stage             레이어·작전·스테이지·결과 제출(별 판정)·순위·사용자 맵
+    │   │   ├── profile           프로필·닉네임·장착·검색·프로필 사진(user_avatars)
+    │   │   ├── stage             레이어·작전·스테이지·결과 제출(별 판정)·순위·사용자 맵·게스트 조회(/api/guest)
     │   │   ├── guidebook         도감
+    │   │   ├── character         인물 (대화창 이름표 색·일러스트 폴더·주인공, 로그인 없이 조회)
     │   │   ├── item              상점·보유 아이템 (스킨·테마)
     │   │   ├── mail              메일 (보상 수령)
     │   │   ├── friend            친구 요청·목록
@@ -56,8 +57,8 @@ Executor-Server/                  ← 저장소 루트 = Railway Root Directory 
     │   │   ├── report            신고
     │   │   ├── notice            공지사항 (로그인 없이 조회)
     │   │   ├── wordlist          감염된 컴퓨터 타자 해킹 단어 (로그인 없이 조회)
-    │   │   └── admin             관리자 (유저·레이어·작전·스테이지·도감·아이템·메일·신고·공지·단어 목록)
-    │   └── global/               ← 공통 (config, exception, jpa, response, security)
+    │   │   └── admin             관리자 (유저·레이어·작전·스테이지·스테이지 배치·도감·인물·아이템·메일·신고·공지·단어 목록)
+    │   └── global/               ← 공통 (config, exception, health(/api/health), jpa, response, security)
     └── resources/
         ├── application.properties
         └── db/
@@ -128,7 +129,13 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 | `2026-11-18_user_stage_stable_cleared.sql` | 별 2(불안정 체크포인트 허용 수 이하) 기록 | 2026-11-18 |
 | `2026-11-19_layers.sql` | 레이어(대주제) 추가, 작전을 레이어 안에 | 2026-11-19 |
 | `2026-11-19_word_lists.sql` | 타자 해킹 단어 목록 | 2026-11-19 |
-| `2026-11-20_remove_hints.sql` | 힌트 기능 제거 (`user_stage_hints` 삭제, 아이템 종류에서 `HINT` 제거) | 미적용 (배포 직전에 실행) |
+| `2026-11-20_remove_hints.sql` | 힌트 기능 제거 (`user_stage_hints` 삭제, 아이템 종류에서 `HINT` 제거) | 적용됨 (2026-11-24 확인) |
+| `2026-11-20_mail_comments.sql` | "우편" → "메일" (mails 테이블·열 주석만) | 적용됨 (2026-11-24 확인) |
+| `2026-11-21_characters.sql` | 인물 목록 `characters` + 기본 인물 5명 | 적용됨 (2026-11-24 확인) |
+| `2026-11-21_cursor_delta_items.sql` | 아이템 종류 `CURSOR`(커서), `DELTA`(델타 꾸미기)와 장착 칸 | 적용됨 (2026-11-24 확인) |
+| `2026-11-21_guidebook_details.sql` | 도감 상세 항목 (언어, 코드 예시, 대처, 맵에서) | 적용됨 (2026-11-24 확인) |
+| `2026-11-24_user_avatars.sql` | 프로필 사진 `user_avatars` (MEDIUMBLOB, 512KB 이하) | 적용됨 (2026-11-24 확인) |
+| `2026-11-24_stage_board_position.sql` | 스테이지 선택 화면 노드 위치 `stages.board_x`, `board_y` | 적용됨 (2026-11-24 확인) |
 
 ## 배포 (Railway)
 
@@ -155,6 +162,11 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 - **시각**: 모든 시각은 UTC 초 단위다. 서버 시계(`Clock.tick` 1초)와 생성·수정 시각(`@CreatedAtSeconds`, `@UpdatedAtSeconds`)을 DB의 `DATETIME`(초 단위)과 맞춰, 저장 직후 응답한 값과 나중에 조회한 값이 같다.
 - **목록 API**: 정렬은 서버가 정하고, 페이지 크기는 1~50으로 제한한다.
 - **사용자 맵**: `map_data`는 JSON 객체(최대 256KB)만 받는다. 제작자가 클리어해야 공개할 수 있고, 공개된 맵은 수정할 수 없다. 비공개 맵을 수정하면 플레이 기록이 지워진다.
+- **map_data는 해석하지 않는다**: 맵 그림 세트(`theme`), 칸별 그림(`tileArt`), 이야기·대화 등은 게임과 관리자 웹만 읽는다. 형식은 [docs/map-data.md](docs/map-data.md).
+- **게스트로 플레이**: `GET /api/guest/operations`, `/api/guest/stages/{id}`는 로그인 없이 공식 스테이지만 조회한다. 기록 없이 모두 열린 상태로 보내고 잠금은 게임이 PC 진행으로 정한다. 결과 제출·순위·코인 등 쓰기 API는 그대로 로그인이 필요하다.
+- **프로필 사진**: 외부 저장소 없이 DB(`user_avatars`, MEDIUMBLOB)에 둔다. PNG·JPEG만, 512KB 이하(게임이 256×256으로 잘라 보낸다). `GET /api/profiles/{userId}/avatar`는 그림 바이트를 돌려주고(하루 캐시), 내 프로필의 `avatarVersion`(수정 시각)이 바뀌면 게임이 다시 받는다.
+- **스테이지 선택 화면 배치**: `stages.board_x`, `board_y`는 0~1 비율 좌표(노드 가운데). 비어 있으면 게임이 지그재그로 자동 배치한다. 관리자 웹 작전 화면에서 끌어 놓아 `PUT /api/admin/operations/{id}/board`로 저장한다.
+- **인증 흐름**: Access Token(30분)은 요청마다 `JwtAuthenticationFilter`가 검사하고, 만료되면 `401 TOKEN_EXPIRED`를 돌려준다. 클라이언트는 Refresh Token(14일, Redis `refresh:{userId}`에 하나만 저장)으로 재발급받고, 재발급할 때마다 Refresh Token도 바뀐다(회전).
 
 ## 주요 변경 이력
 
@@ -168,6 +180,8 @@ Redis는 테스트 중 실제로 접속하지 않으므로 로컬에 없어도 �
 | 11/18 | 체크포인트 기준 ★2 (`stars.maxUnstable`, `is_stable_cleared`) |
 | 11/19 | 레이어(스토리 대주제), 타자 해킹 단어 목록 |
 | 11/20 | 힌트 기능 제거, ★3 조건을 맵마다 선택 (`stars.bonus`, 서버 변경 없음) |
+| 11/21 | 서버 연결 확인 `/api/health`, 가입 비밀번호 영문·숫자 규칙, 인물 목록, 아이템 종류 CURSOR·DELTA, 도감 상세 항목, map-data 문서(나레이션 배경, 대화 단계, 맵 그림 세트) |
+| 11/24 | 순위 응답에 클리어 인원(`total`)·첫 클리어 시각(`clearedAt`), 프로필 사진, 게스트로 플레이 공개 조회 API, 스테이지 선택 화면 배치, map-data 문서(코퍼레이션·튜토리얼 세트, 워프 후 열쇠 유지, 칸별 그림 `tileArt`) |
 
 ## 알려진 문제
 
