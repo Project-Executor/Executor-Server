@@ -73,6 +73,9 @@ public class SecurityConfig {
                         // 이벤트 스테이지(전시용): 로그인 없이 순위를 보고 기록을 올린다
                         .requestMatchers(HttpMethod.GET, "/api/events/*/records").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/events/*/records").permitAll()
+                        // 방명록(전시용): 로그인 없이 보고 남긴다 (토큰이 있으면 하루 첫 글 코인 보상)
+                        .requestMatchers(HttpMethod.GET, "/api/guestbook/latest").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/guestbook").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // 401(인증 없음) / 403(권한 없음)을 공통 JSON 형식으로 응답

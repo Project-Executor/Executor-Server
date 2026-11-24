@@ -490,6 +490,25 @@ CREATE TABLE event_records (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '이벤트 스테이지 기록';
 
 
+-- 방명록 (전시용, 로그인 없이 이름만). 욕설·개인정보는 서버가 * 로 가려서 저장한다
+--  - user_id: 로그인하고 남겼으면 (하루 첫 글 코인 보상 판단), device_id: 같은 기기 30초 연속 작성 제한
+CREATE TABLE guestbook_entries (
+    id          BIGINT        NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    name        VARCHAR(20)   NOT NULL                COMMENT '이름 (1~10자)',
+    message     VARCHAR(200)  NOT NULL                COMMENT '남긴 말 (1~100자)',
+    user_id     BIGINT            NULL                COMMENT '로그인하고 남겼으면 사용자 ID',
+    device_id   VARCHAR(64)       NULL                COMMENT '게임이 PC마다 만든 임의 값 (연속 작성 제한)',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '남긴 시각',
+
+    PRIMARY KEY (id),
+    KEY idx_guestbook_created (created_at),
+    KEY idx_guestbook_device (device_id, created_at),
+    KEY idx_guestbook_user (user_id, created_at),
+    CONSTRAINT fk_guestbook_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '방명록';
+
+
 -- =====================================================================
 -- 8. 기초 데이터
 -- =====================================================================
