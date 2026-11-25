@@ -16,12 +16,12 @@ public interface EventRecordRepository extends JpaRepository<EventRecord, Long> 
 
     long countByStageId(Long stageId);
 
-    /** 적을수록 위 (턴수). 같으면 먼저 올린 기록이 위 */
-    @Query("select r from EventRecord r where r.stageId = :stageId order by r.score asc, r.createdAt asc, r.id asc")
+    /** 적을수록 위 (턴수). 같으면 이름순 */
+    @Query("select r from EventRecord r where r.stageId = :stageId order by r.score asc, r.name asc, r.id asc")
     List<EventRecord> findTopAscending(@Param("stageId") Long stageId, Pageable pageable);
 
-    /** 많을수록 위 (타자). 같으면 먼저 올린 기록이 위 */
-    @Query("select r from EventRecord r where r.stageId = :stageId order by r.score desc, r.createdAt asc, r.id asc")
+    /** 많을수록 위 (타자). 같으면 이름순 */
+    @Query("select r from EventRecord r where r.stageId = :stageId order by r.score desc, r.name asc, r.id asc")
     List<EventRecord> findTopDescending(@Param("stageId") Long stageId, Pageable pageable);
 
     @Query("select count(r) from EventRecord r where r.stageId = :stageId and r.score < :score")

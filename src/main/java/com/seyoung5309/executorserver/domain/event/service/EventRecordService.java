@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 이벤트 스테이지 순위 (전시용, 로그인 없음).
  * 턴수 이벤트는 score(턴)가 적을수록, 타자 이벤트는 score(친 단어 수)가 많을수록 위다.
- * 같은 점수는 같은 순위이고, 먼저 올린 기록이 위에 보인다.
+ * 같은 점수는 같은 순위이고, 이름순으로 보인다.
  */
 @Service
 @RequiredArgsConstructor
