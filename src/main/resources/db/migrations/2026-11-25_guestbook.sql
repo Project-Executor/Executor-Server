@@ -12,7 +12,7 @@
 SET NAMES utf8mb4;
 
 -- 방명록 (전시용, 로그인 없이 이름만). 욕설·개인정보는 서버가 * 로 가려서 저장한다
---  - user_id: 로그인하고 남겼으면 (하루 첫 글 코인 보상 판단), device_id: 같은 기기 30초 연속 작성 제한
+--  - user_id: 로그인하고 남겼으면 (하루 첫 글 코인 보상 판단), device_id: 같은 기기 5초 연속 작성 제한
 CREATE TABLE IF NOT EXISTS guestbook_entries (
     id          BIGINT        NOT NULL AUTO_INCREMENT COMMENT 'ID',
     name        VARCHAR(20)   NOT NULL                COMMENT '이름 (1~10자)',

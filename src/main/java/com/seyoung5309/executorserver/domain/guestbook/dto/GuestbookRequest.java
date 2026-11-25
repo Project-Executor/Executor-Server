@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
  *
  * @param name     앞뒤 공백을 지우고 1~10자
  * @param message  앞뒤 공백을 지우고 1~100자
- * @param deviceId 게임이 PC마다 만든 임의 값 (같은 기기 30초 연속 작성 제한). 없으면 제한 없음
+ * @param deviceId 게임이 PC마다 만든 임의 값 (같은 기기 5초 연속 작성 제한). 없으면 제한 없음
  */
 public record GuestbookRequest(
         @NotBlank(message = "이름을 입력해 주세요.")
