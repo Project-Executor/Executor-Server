@@ -1,7 +1,8 @@
 """
-50x50 미궁 맵 생성 + 검증 (관리자 웹 JSON 직접 편집에 붙여 넣을 map_data).
+미궁 맵 생성 + 검증 (관리자 웹 JSON 직접 편집에 붙여 넣을 map_data).
 
-실행: python docs/maps/build_labyrinth.py  (결과: docs/maps/labyrinth-50.json)
+실행: python docs/maps/build_labyrinth.py 25   (결과: docs/maps/labyrinth-25.json)
+      python docs/maps/build_labyrinth.py 50   (결과: docs/maps/labyrinth-50.json)
 
 구성 (4구역을 시계 방향으로 지나 출구로):
   1구역 (왼쪽 위, 시작)   고리가 있는 미로. 가장 먼 막다른 곳의 빨간 열쇠 -> 빨간 문으로 2구역
@@ -20,9 +21,39 @@ from collections import deque
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
-OUT = Path(__file__).resolve().parent / "labyrinth-50.json"
-N = 50
+N = int(sys.argv[1]) if len(sys.argv) > 1 else 25
+OUT = Path(__file__).resolve().parent / f"labyrinth-{N}.json"
 SEED = 20261125
+
+# 크기별 설정. 상자 방(C 상자, # 벽)은 왼쪽 위 칸으로 들어와 오른쪽 아래 칸에서 아래 벽으로 나간다
+SIZES = {
+    25: dict(room=(17, 7), turns=200, pc_words=5, pc_time=40, guide="미궁입니다. M을 누르면 맵 전체를 볼 수 있습니다.",
+             room_rows=[  # 7 x 5, 최소 6번 밀어야 한다
+                 ".C.....",
+                 "C#..#C.",
+                 "..#.#..",
+                 "...#.C.",
+                 "..###..",
+             ]),
+    50: dict(room=(35, 15), turns=500, pc_words=6, pc_time=40, guide="거대한 미궁입니다. M을 누르면 맵 전체를 볼 수 있습니다.",
+             room_rows=[  # 13 x 9, 최소 7번 밀어야 한다
+                 ".##...C......",
+                 "C..#..##.....",
+                 ".....#.C..#.#",
+                 ".....#.#..###",
+                 ".#.#.C#C#....",
+                 "...##..#..C..",
+                 "#..##.#..#C#.",
+                 ".....#.#.#..#",
+                 "..#C..#.##...",
+             ]),
+}
+assert N in SIZES, f"크기는 {sorted(SIZES)} 중 하나"
+CFG = SIZES[N]
+D = (N - 1) // 2  # 구역 사이 벽 줄 (50 -> 24, 25 -> 12)
+A1, A2 = 1, D - 1          # 왼쪽·위 구역 칸 범위
+B1, B2 = D + 1, 2 * D - 1  # 오른쪽·아래 구역 칸 범위
+TURNS = CFG["turns"]
 
 grid = [["#"] * N for _ in range(N)]
 objects = []
@@ -119,33 +150,24 @@ used = set()
 
 # ---------------- 1구역: 왼쪽 위 (시작) ----------------
 start = (1, 1)
-q1 = carve_maze(rng, 1, 23, 1, 23, start, loops=0.08)
+q1 = carve_maze(rng, A1, A2, A1, A2, start, loops=0.08)
 d1 = floor_bfs(start)
 red_key = max(dead_ends(q1), key=lambda c: d1[c])
 used |= {start, red_key}
 obj(id="key_red", type="key", x=red_key[0], y=red_key[1], keyId="red")
-# 빨간 문: 오른쪽 벽(x=24)에서 시작점과 열쇠 둘 다에서 먼 줄
-door1_y = max(range(1, 24, 2), key=lambda y: d1[(23, y)] + abs(y - red_key[1]))
-grid[door1_y][24] = "."
-obj(id="door_red", type="door", x=24, y=door1_y, keyId="red")
-secret_pocket(rng, q1, used | {(23, door1_y)}, "q1")
+# 빨간 문: 오른쪽 벽(x=D)에서 시작점과 열쇠 둘 다에서 먼 줄
+door1_y = max(range(A1, A2 + 1, 2), key=lambda y: d1[(A2, y)] + abs(y - red_key[1]))
+grid[door1_y][D] = "."
+obj(id="door_red", type="door", x=D, y=door1_y, keyId="red")
+secret_pocket(rng, q1, used | {(A2, door1_y)}, "q1")
 
 # ---------------- 2구역: 오른쪽 위 (상자 방) ----------------
-ROOM_X, ROOM_Y = 35, 15
-ROOM = [  # 13 x 9. C 상자, # 벽. 왼쪽 위로 들어와 오른쪽 아래(47,23)에서 아래 벽(47,24)으로 나간다. 최소 7번 밀어야 한다
-    ".##...C......",
-    "C..#..##.....",
-    ".....#.C..#.#",
-    ".....#.#..###",
-    ".#.#.C#C#....",
-    "...##..#..C..",
-    "#..##.#..#C#.",
-    ".....#.#.#..#",
-    "..#C..#.##...",
-]
+ROOM_X, ROOM_Y = CFG["room"]
+ROOM = CFG["room_rows"]
+assert (ROOM_X + len(ROOM[0]) - 1, ROOM_Y + len(ROOM) - 1) == (B2, A2), "상자 방은 2구역 오른쪽 아래 구석에 붙어야 한다"
 room_cells = {(ROOM_X + x, ROOM_Y + y) for y in range(len(ROOM)) for x in range(len(ROOM[0]))}
-q2_entry = (25, door1_y)
-q2 = carve_maze(rng, 25, 47, 1, 23, q2_entry, exclude=frozenset(room_cells), loops=0.05)
+q2_entry = (B1, door1_y)
+q2 = carve_maze(rng, B1, B2, A1, A2, q2_entry, exclude=frozenset(room_cells), loops=0.05)
 for y, row in enumerate(ROOM):
     for x, ch in enumerate(row):
         gx, gy = ROOM_X + x, ROOM_Y + y
@@ -159,38 +181,44 @@ for x in range(ROOM_X - 1, ROOM_X + len(ROOM[0]) + 1):
 for y in range(ROOM_Y, ROOM_Y + len(ROOM)):
     grid[y][ROOM_X - 1] = "#"
 grid[ROOM_Y - 1][ROOM_X] = "."
-grid[24][47] = "."  # 방 -> 3구역
-obj(id="cp1", type="checkpoint", x=q2_entry[0], y=q2_entry[1], order=1, turns=500)
+grid[D][B2] = "."  # 방 -> 3구역
+obj(id="cp1", type="checkpoint", x=q2_entry[0], y=q2_entry[1], order=1, turns=TURNS)
 used.add(q2_entry)
 
 # ---------------- 3구역: 오른쪽 아래 (컴퓨터·레이저·엔티티) ----------------
-q3_entry = (47, 25)
-q3 = carve_maze(rng, 25, 47, 25, 47, q3_entry)
-obj(id="cp2", type="checkpoint", x=q3_entry[0], y=q3_entry[1], order=2, turns=500)
+q3_entry = (B2, B1)
+q3 = carve_maze(rng, B1, B2, B1, B2, q3_entry)
+obj(id="cp2", type="checkpoint", x=q3_entry[0], y=q3_entry[1], order=2, turns=TURNS)
 used.add(q3_entry)
 d3 = floor_bfs(q3_entry)
 npc_cell = max(dead_ends(q3), key=lambda c: d3[c])
 route = path_to(q3_entry, npc_cell)
-laser = route[int(len(route) * 0.55)]
 firewall = route[int(len(route) * 0.2)]
-# 컴퓨터: 레이저보다 앞쪽에서 닿는 막다른 칸 중 입구에서 먼 곳 (가는 길에 방화벽이 있으면 더 좋다)
-before_laser = floor_bfs(q3_entry, blocked=frozenset({laser}))
-pc_cell = max((c for c in dead_ends(q3) if c in before_laser and c not in route and c != q3_entry), key=lambda c: before_laser[c])
+# 레이저: 엔티티로 가는 길 중간쯤. 컴퓨터: 레이저보다 앞쪽에서 닿는 막다른 칸 중 입구에서 먼 곳
+# (작은 맵에서 그런 칸이 없으면 레이저를 조금씩 뒤로 민다)
+for frac in (0.55, 0.65, 0.75, 0.85):
+    laser = route[int(len(route) * frac)]
+    before_laser = floor_bfs(q3_entry, blocked=frozenset({laser}))
+    pc_options = [c for c in dead_ends(q3) if c in before_laser and c not in route and c != q3_entry]
+    if pc_options:
+        break
+assert pc_options, "컴퓨터를 둘 막다른 칸이 없음"
+pc_cell = max(pc_options, key=lambda c: before_laser[c])
 obj(id="laser", type="door", x=laser[0], y=laser[1], keyId="laser")
 obj(id="fw3", type="breakable", x=firewall[0], y=firewall[1], hp=3)
-obj(id="pc", type="computer", x=pc_cell[0], y=pc_cell[1], name="감염된 보안 PC", wordCount=6, timeLimit=40,
+obj(id="pc", type="computer", x=pc_cell[0], y=pc_cell[1], name="감염된 보안 PC", wordCount=CFG["pc_words"], timeLimit=CFG["pc_time"],
     effects=[{"type": "remove", "target": "laser"}])
 obj(id="entity", type="npc", x=npc_cell[0], y=npc_cell[1], name="엔티티", dialogueId="entity")
 used |= {laser, firewall, pc_cell, npc_cell}
-# 파란 문: 3구역 왼쪽 벽(x=24). 엔티티에서 먼 줄
-door2_y = max(range(25, 48, 2), key=lambda y: abs(y - npc_cell[1]) + d3.get((25, y), 0))
-grid[door2_y][24] = "."
-obj(id="door_blue", type="door", x=24, y=door2_y, keyId="blue")
+# 파란 문: 3구역 왼쪽 벽(x=D). 엔티티에서 먼 줄
+door2_y = max((y for y in range(B1, B2 + 1, 2) if (B1, y) not in used), key=lambda y:abs(y - npc_cell[1]) + d3.get((B1, y), 0))
+grid[door2_y][D] = "."
+obj(id="door_blue", type="door", x=D, y=door2_y, keyId="blue")
 
 # ---------------- 4구역: 왼쪽 아래 (출구) ----------------
-q4_entry = (23, door2_y)
-q4 = carve_maze(rng, 1, 23, 25, 47, q4_entry, loops=0.08)
-obj(id="cp3", type="checkpoint", x=q4_entry[0], y=q4_entry[1], order=3, turns=500)
+q4_entry = (A2, door2_y)
+q4 = carve_maze(rng, A1, A2, B1, B2, q4_entry, loops=0.08)
+obj(id="cp3", type="checkpoint", x=q4_entry[0], y=q4_entry[1], order=3, turns=TURNS)
 used.add(q4_entry)
 d4 = floor_bfs(q4_entry)
 exit_cell = max(dead_ends(q4), key=lambda c: d4[c])
@@ -219,7 +247,7 @@ DIALOGUES = {
 }
 
 GUIDES = [
-    {"on": "start", "text": "거대한 미궁입니다. M을 누르면 맵 전체를 볼 수 있습니다."},
+    {"on": "start", "text": CFG["guide"]},
     {"on": "start", "text": "빨간 열쇠를 찾아 동쪽의 빨간 문을 여십시오."},
 ]
 
@@ -327,7 +355,7 @@ def solve(md, allow_push=True):
                             k2[e["keyId"]] = k2.get(e["keyId"], 0) + 1
                 nexts.append((pos, crates, removed, hp, tuple(sorted(k2.items())), True))
         for s in nexts:
-            if s[0][1] >= 25:  # 상자 방을 지나 아래 구역으로 오면 상자 위치는 더 이상 길에 영향이 없다
+            if s[0][1] >= B1:  # 상자 방을 지나 아래 구역으로 오면 상자 위치는 더 이상 길에 영향이 없다
                 s = (s[0], (), s[2], s[3], s[4], s[5])
             if s not in seen:
                 seen.add(s)
@@ -336,7 +364,7 @@ def solve(md, allow_push=True):
 
 
 # 상자 방을 상자 없이 지나갈 수 없는지 (방 입구 -> 출구 줄)
-room_entry, room_exit = (ROOM_X, ROOM_Y), (47, 23)
+room_entry, room_exit = (ROOM_X, ROOM_Y), (B2, A2)
 crate_cells = {(o["x"], o["y"]) for o in objects if o["type"] == "crate"}
 assert room_exit not in floor_bfs(room_entry, blocked=frozenset(crate_cells)), "상자 방이 상자를 밀지 않아도 지나가짐"
 assert solve(map_data), "클리어할 수 없음"
@@ -344,7 +372,7 @@ assert not solve(map_data, allow_push=False), "상자를 밀지 않아도 클리
 
 floor = sum(r.count(".") for r in map_data["tiles"])
 shortest = floor_bfs(start)
-print(f"OK 50x50 · 바닥 {floor}칸 · 오브젝트 {len(objects)}개 "
+print(f"OK {N}x{N} · 바닥 {floor}칸 · 오브젝트 {len(objects)}개 "
       f"(상자 {len(crate_cells)}, 문 3, 방화벽 2, 체크포인트 3, 컴퓨터 1, 인물 1, 파편 2, 가짜 벽 2)")
 OUT.write_text(json.dumps(map_data, ensure_ascii=False, indent=2), encoding="utf-8")
 print("저장:", OUT)

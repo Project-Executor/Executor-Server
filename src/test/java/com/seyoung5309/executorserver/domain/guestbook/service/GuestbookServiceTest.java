@@ -86,8 +86,8 @@ class GuestbookServiceTest {
     }
 
     @Test
-    void 같은_기기는_30초에_한_번() {
-        when(repository.existsByDeviceIdAndCreatedAtGreaterThanEqual("pc-1", NOW.minusSeconds(30))).thenReturn(true);
+    void 같은_기기는_5초에_한_번() {
+        when(repository.existsByDeviceIdAndCreatedAtGreaterThanEqual("pc-1", NOW.minusSeconds(5))).thenReturn(true);
         assertErrorCode(() -> service.post(null, new GuestbookRequest("이밤", "안녕", "pc-1")), ErrorCode.MESSAGE_SPAM);
         verify(repository, never()).save(any());
     }

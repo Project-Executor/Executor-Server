@@ -37,7 +37,7 @@ public class GuestbookController {
 
     @Operation(summary = "방명록 남기기",
             description = "이름 1~10자, 내용 1~100자 (앞뒤 공백 제외). 욕설·전화번호·이메일은 * 로 가려서 저장한다. "
-                    + "같은 deviceId는 30초에 한 번(429 MESSAGE_SPAM). 토큰을 보내면 그날 첫 글에 코인 10개(rewardCoin, totalCoin).")
+                    + "같은 deviceId는 5초에 한 번(429 MESSAGE_SPAM). 토큰을 보내면 그날 첫 글에 코인 10개(rewardCoin, totalCoin).")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GuestbookPostResponse post(@Valid @RequestBody GuestbookRequest request) {

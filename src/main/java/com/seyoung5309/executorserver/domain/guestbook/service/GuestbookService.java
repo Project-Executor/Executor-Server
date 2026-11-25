@@ -28,7 +28,7 @@ import java.util.List;
  * 방명록 (전시용, 로그인 없이 남긴다).
  * <ul>
  *   <li>이름 1~10자, 내용 1~100자. 욕설·개인정보는 저장하기 전에 * 로 가린다</li>
- *   <li>같은 기기(deviceId)는 30초에 한 번</li>
+ *   <li>같은 기기(deviceId)는 5초에 한 번</li>
  *   <li>로그인한 사용자는 그날(한국 시간) 첫 글에 코인 10개</li>
  * </ul>
  */
@@ -39,7 +39,7 @@ public class GuestbookService {
     public static final int NAME_MAX = 10;
     public static final int MESSAGE_MAX = 100;
     public static final int REWARD_COIN = 10;
-    public static final Duration DEVICE_COOLDOWN = Duration.ofSeconds(30);
+    public static final Duration DEVICE_COOLDOWN = Duration.ofSeconds(5);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final GuestbookRepository guestbookRepository;
@@ -60,7 +60,7 @@ public class GuestbookService {
      * 글을 남긴다.
      *
      * @param userId 로그인했으면 사용자 ID, 아니면 null
-     * @throws BusinessException INVALID_INPUT(길이·제어 문자), MESSAGE_SPAM(같은 기기 30초 안에 다시)
+     * @throws BusinessException INVALID_INPUT(길이·제어 문자), MESSAGE_SPAM(같은 기기 5초 안에 다시)
      */
     @Transactional
     public GuestbookPostResponse post(Long userId, GuestbookRequest request) {
@@ -69,7 +69,7 @@ public class GuestbookService {
         String deviceId = request.deviceId() == null || request.deviceId().isBlank() ? null : request.deviceId().strip();
         Instant now = clock.instant();
         if (deviceId != null && guestbookRepository.existsByDeviceIdAndCreatedAtGreaterThanEqual(deviceId, now.minus(DEVICE_COOLDOWN))) {
-            throw new BusinessException(ErrorCode.MESSAGE_SPAM, "방명록은 30초에 한 번 남길 수 있어요. 잠시 후 다시 남겨 주세요.");
+            throw new BusinessException(ErrorCode.MESSAGE_SPAM, "방명록은 5초에 한 번 남길 수 있어요. 잠시 후 다시 남겨 주세요.");
         }
 
         // 보상 판단은 저장 전에 (오늘 이미 남겼는지)
