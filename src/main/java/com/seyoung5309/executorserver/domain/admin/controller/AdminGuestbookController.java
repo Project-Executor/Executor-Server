@@ -5,8 +5,10 @@ import com.seyoung5309.executorserver.domain.guestbook.service.GuestbookService;
 import com.seyoung5309.executorserver.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -31,6 +33,23 @@ public class AdminGuestbookController {
             @Max(value = 50, message = "size는 50 이하여야 합니다.")
             int size) {
         return guestbookService.search(q, page, size);
+    }
+
+    @Operation(summary = "방명록 켜짐 여부", description = "꺼져 있으면 게임에서 방명록 위젯·창이 보이지 않는다.")
+    @GetMapping("/settings")
+    public GuestbookSettings settings() {
+        return new GuestbookSettings(guestbookService.isEnabled());
+    }
+
+    @Operation(summary = "방명록 켜기/끄기", description = "전시할 때 켠다. 게임은 다음 새로고침(10초 안)에 반영한다.")
+    @PutMapping("/settings")
+    public GuestbookSettings updateSettings(@RequestBody @Valid GuestbookSettings request) {
+        guestbookService.setEnabled(request.enabled());
+        return new GuestbookSettings(guestbookService.isEnabled());
+    }
+
+    /** @param enabled 방명록을 게임에 보일지 */
+    public record GuestbookSettings(@NotNull(message = "enabled를 입력해 주세요.") Boolean enabled) {
     }
 
     @Operation(summary = "방명록 글 삭제", description = "부적절한 글. 게임 화면에서 바로 사라진다(다음 새로고침).")

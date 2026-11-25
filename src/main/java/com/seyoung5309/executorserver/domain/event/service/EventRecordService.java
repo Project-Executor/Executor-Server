@@ -120,7 +120,7 @@ public class EventRecordService {
 
     private Stage findEventStage(Long stageId) {
         return stageRepository.findById(stageId)
-                .filter(s -> s.isOfficial() && s.getStageType().isEvent())
+                .filter(s -> s.isOfficial() && !s.isHidden() && s.getStageType().isEvent())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "이벤트 스테이지를 찾을 수 없습니다."));
     }
 

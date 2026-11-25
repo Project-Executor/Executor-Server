@@ -24,6 +24,7 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "정지된 계정입니다."),
     STAGE_LOCKED(HttpStatus.FORBIDDEN, "아직 해금되지 않은 스테이지입니다."),
+    GUESTBOOK_CLOSED(HttpStatus.FORBIDDEN, "지금은 방명록을 남길 수 없어요."),
 
     // 404
     NOT_FOUND(HttpStatus.NOT_FOUND, "리소스를 찾을 수 없습니다."),

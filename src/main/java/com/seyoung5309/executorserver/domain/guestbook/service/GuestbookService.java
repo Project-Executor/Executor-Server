@@ -7,6 +7,7 @@ import com.seyoung5309.executorserver.domain.guestbook.dto.GuestbookRequest;
 import com.seyoung5309.executorserver.domain.guestbook.entity.GuestbookEntry;
 import com.seyoung5309.executorserver.domain.guestbook.repository.GuestbookRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.setting.service.AppSettingService;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import com.seyoung5309.executorserver.global.response.PageResponse;
@@ -30,6 +31,7 @@ import java.util.List;
  *   <li>이름 1~10자, 내용 1~100자. 욕설·개인정보는 저장하기 전에 * 로 가린다</li>
  *   <li>같은 기기(deviceId)는 5초에 한 번</li>
  *   <li>로그인한 사용자는 그날(한국 시간) 첫 글에 코인 10개</li>
+ *   <li>관리자가 끄면(app_settings guestbook.enabled) 게임에서 숨고, 글을 남길 수 없다</li>
  * </ul>
  */
 @Service
@@ -44,15 +46,19 @@ public class GuestbookService {
 
     private final GuestbookRepository guestbookRepository;
     private final UserRepository userRepository;
+    private final AppSettingService appSettingService;
     private final Clock clock;
 
-    /** 최신 limit개 (오래된 것부터) + 오늘·전체 글 수 */
+    /** 최신 limit개 (오래된 것부터) + 오늘·전체 글 수. 꺼져 있으면 enabled=false와 빈 목록 */
     @Transactional(readOnly = true)
     public GuestbookLatestResponse latest(int limit) {
+        if (!isEnabled()) {
+            return new GuestbookLatestResponse(false, List.of(), 0, 0);
+        }
         List<GuestbookEntryResponse> entries = new ArrayList<>(guestbookRepository.findLatest(PageRequest.of(0, limit)).stream()
                 .map(GuestbookEntryResponse::from).toList());
         Collections.reverse(entries);
-        return new GuestbookLatestResponse(entries, guestbookRepository.countByCreatedAtGreaterThanEqual(startOfToday()),
+        return new GuestbookLatestResponse(true, entries, guestbookRepository.countByCreatedAtGreaterThanEqual(startOfToday()),
                 guestbookRepository.count());
     }
 
@@ -60,10 +66,13 @@ public class GuestbookService {
      * 글을 남긴다.
      *
      * @param userId 로그인했으면 사용자 ID, 아니면 null
-     * @throws BusinessException INVALID_INPUT(길이·제어 문자), MESSAGE_SPAM(같은 기기 5초 안에 다시)
+     * @throws BusinessException GUESTBOOK_CLOSED(관리자가 꺼 둠), INVALID_INPUT(길이·제어 문자), MESSAGE_SPAM(같은 기기 5초 안에 다시)
      */
     @Transactional
     public GuestbookPostResponse post(Long userId, GuestbookRequest request) {
+        if (!isEnabled()) {
+            throw new BusinessException(ErrorCode.GUESTBOOK_CLOSED);
+        }
         String name = clean(request.name(), NAME_MAX, "이름");
         String message = clean(request.message(), MESSAGE_MAX, "남길 말");
         String deviceId = request.deviceId() == null || request.deviceId().isBlank() ? null : request.deviceId().strip();
@@ -99,6 +108,17 @@ public class GuestbookService {
         GuestbookEntry entry = guestbookRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "방명록 글을 찾을 수 없습니다."));
         guestbookRepository.delete(entry);
+    }
+
+    /** 방명록이 켜져 있는지 (관리자 설정) */
+    public boolean isEnabled() {
+        return appSettingService.isOn(AppSettingService.GUESTBOOK_ENABLED);
+    }
+
+    /** 관리자: 방명록 켜기/끄기 */
+    @Transactional
+    public void setEnabled(boolean enabled) {
+        appSettingService.set(AppSettingService.GUESTBOOK_ENABLED, enabled);
     }
 
     private Instant startOfToday() {

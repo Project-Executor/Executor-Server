@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 /**
  * 레이어 (스토리 대주제). 작전(Operation, 소주제)을 묶는다.
  * 플레이 순서는 레이어 sortOrder -> 작전 sortOrder(레이어 안) -> 스테이지 번호. 튜토리얼 레이어가 0이다.
+ * sortOrder가 음수(-1, -2, ...)면 비공개 레이어: 게임에 보이지 않고 플레이·해금 순서에서도 빠진다 (관리자 웹에만 보인다).
  */
 @Entity
 @Table(name = "layers")
@@ -24,7 +25,7 @@ public class Layer {
 
     private String description;
 
-    /** 표시·플레이 순서 (튜토리얼 = 0). 레이어끼리 겹칠 수 없다 */
+    /** 표시·플레이 순서 (튜토리얼 = 0, 음수면 비공개). 레이어끼리 겹칠 수 없다 */
     @Column(nullable = false, unique = true)
     private int sortOrder;
 
@@ -36,5 +37,10 @@ public class Layer {
         this.name = name;
         this.description = description;
         this.sortOrder = sortOrder;
+    }
+
+    /** 비공개 레이어인지 (sortOrder가 음수) */
+    public boolean isHidden() {
+        return sortOrder < 0;
     }
 }

@@ -61,7 +61,7 @@ class StageResultServiceTest {
                 guidebookRepository, userGuidebookRepository, Clock.fixed(NOW, ZoneOffset.UTC),
                 tools.jackson.databind.json.JsonMapper.builder().build());
 
-        when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(tutorial, s1, s2));
+        when(stageRepository.findAllOfficialVisibleInPlayOrder()).thenReturn(List.of(tutorial, s1, s2));
         when(userRepository.findCoinByUserId(1L)).thenReturn(Optional.of(100));
     }
 

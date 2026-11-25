@@ -36,7 +36,7 @@ class StageAccessServiceTest {
         stageRepository = mock(StageRepository.class);
         userStageRepository = mock(UserStageRepository.class);
         accessService = new StageAccessService(stageRepository, userStageRepository);
-        when(stageRepository.findAllOfficialInPlayOrder()).thenReturn(List.of(s1, s2));
+        when(stageRepository.findAllOfficialVisibleInPlayOrder()).thenReturn(List.of(s1, s2));
         when(userStageRepository.findClearedOfficialStageIds(1L)).thenReturn(Set.of());
     }
 
@@ -68,7 +68,7 @@ class StageAccessServiceTest {
         when(stageRepository.findById(50L)).thenReturn(Optional.of(map));
 
         assertThat(accessService.getPlayableStage(1L, 50L)).isSameAs(map);
-        verify(stageRepository, never()).findAllOfficialInPlayOrder();
+        verify(stageRepository, never()).findAllOfficialVisibleInPlayOrder();
     }
 
     @Test

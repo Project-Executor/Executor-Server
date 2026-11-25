@@ -508,6 +508,16 @@ CREATE TABLE guestbook_entries (
         FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '방명록';
 
+-- 서버 설정 (관리자 웹에서 켜고 끄는 값). 키 하나에 값 하나
+--  - guestbook.enabled: 방명록을 게임에 보일지 ('true' / 'false'). 전시할 때만 켠다
+CREATE TABLE IF NOT EXISTS app_settings (
+    setting_key    VARCHAR(50)   NOT NULL                COMMENT '설정 이름',
+    setting_value  VARCHAR(255)  NOT NULL                COMMENT '값',
+    updated_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '바꾼 시각',
+
+    PRIMARY KEY (setting_key)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '서버 설정';
+
 
 -- =====================================================================
 -- 8. 기초 데이터
@@ -519,6 +529,8 @@ INSERT IGNORE INTO report_categories (name) VALUES
     ('불량 맵'),
     ('버그 제보'),
     ('기타');
+
+INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('guestbook.enabled', 'false');
 
 INSERT IGNORE INTO layers (name, description, sort_order) VALUES
     ('Tutorial', '홀로그램 시뮬레이션', 0);
