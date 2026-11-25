@@ -14,7 +14,7 @@ import java.util.Objects;
 /**
  * 스테이지를 플레이(조회·결과 제출·힌트 사용)할 수 있는지 확인한다.
  * <ul>
- *   <li>공식 스테이지: 해금되어 있어야 한다 -> 아니면 STAGE_LOCKED</li>
+ *   <li>공식 스테이지: 비공개 레이어면 없는 스테이지(NOT_FOUND), 해금되어 있어야 한다 -> 아니면 STAGE_LOCKED</li>
  *   <li>사용자 맵: 공개됐거나 내가 만든 맵이어야 한다 -> 아니면 FORBIDDEN</li>
  * </ul>
  */
@@ -33,6 +33,9 @@ public class StageAccessService {
         Stage stage = stageRepository.findById(stageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "스테이지를 찾을 수 없습니다."));
 
+        if (stage.isHidden()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "스테이지를 찾을 수 없습니다.");
+        }
         if (stage.isOfficial()) {
             if (!isUnlocked(userId, stage)) {
                 throw new BusinessException(ErrorCode.STAGE_LOCKED);
@@ -45,7 +48,7 @@ public class StageAccessService {
 
     private boolean isUnlocked(Long userId, Stage stage) {
         return StageUnlockPolicy.unlockedStageIds(
-                stageRepository.findAllOfficialInPlayOrder(),
+                stageRepository.findAllOfficialVisibleInPlayOrder(),
                 userStageRepository.findClearedOfficialStageIds(userId)
         ).contains(stage.getId());
     }

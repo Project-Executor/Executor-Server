@@ -391,7 +391,7 @@ Redis에 저장된 Refresh Token을 지운다.
 ### GET `/operations`
 
 공식 작전과 스테이지 목록, 그리고 내 진행도를 한 번에 조회한다. 플레이 순서(**레이어 `sort_order` → 작전 `sort_order` → `stage_no`**)로 정렬한다.
-작전마다 소속 **레이어**(스토리 대주제)가 `layer`로 온다. 화면에서 레이어별로 묶어 보여 줄 때 쓴다 (작전 `sortOrder`는 레이어 안에서의 순서).
+작전마다 소속 **레이어**(스토리 대주제)가 `layer`로 온다. 순서(`sortOrder`)가 음수인 **비공개 레이어**의 작전·스테이지는 목록에 없고, 직접 불러도 `404`이며 해금 순서에서도 빠진다. 화면에서 레이어별로 묶어 보여 줄 때 쓴다 (작전 `sortOrder`는 레이어 안에서의 순서).
 
 **Response** `200 OK`
 ```json
@@ -568,7 +568,7 @@ Redis에 저장된 Refresh Token을 지운다.
 - 끝나면 게임이 이름을 받아 아래 API로 올린다. **로그인 없이** 누구나 올릴 수 있다.
 - 턴수 이벤트: 맵을 깨면 `score` = 기록 턴(구간 최고 기록의 합). **적을수록 위**.
 - 타자 이벤트: 맵 대신 `map_data.event`(`wordListId`, `timeLimit` 초)를 쓴다. 단어 목록에서 끝없이 나오는 단어를 제한 시간 동안 치고 `score` = 맞게 친 단어 수. **많을수록 위**.
-- 같은 점수는 같은 순위이고, 먼저 올린 기록이 위에 보인다.
+- 같은 점수는 같은 순위이고, 이름순으로 보인다.
 
 ### GET `/events/{stageId}/records?size=20` 🔓
 
@@ -1127,6 +1127,7 @@ s.length(); // 여기서 예외",
 **Response** `200 OK`
 ```json
 {
+  "enabled": true,
   "entries": [
     { "id": 41, "name": "정하은", "message": "카시아 대사 너무 맛있다…", "createdAt": "2026-11-28T05:23:00Z" },
     { "id": 42, "name": "최우진", "message": "랭킹 1등 찍고 갑니다 ★★★", "createdAt": "2026-11-28T05:30:00Z" }
@@ -1159,7 +1160,9 @@ s.length(); // 여기서 예외",
 ```
 - `rewardCoin`: 이번에 받은 코인(0 또는 10), `totalCoin`: 받았으면 받은 뒤 보유 코인, 아니면 `null`
 
-**Error**: `400 INVALID_INPUT`, `429 MESSAGE_SPAM`
+**Error**: `400 INVALID_INPUT`, `403 GUESTBOOK_CLOSED`(관리자가 꺼 둠), `429 MESSAGE_SPAM`
+
+> 방명록은 관리자가 켜 둔 동안만 쓸 수 있다 (`app_settings` `guestbook.enabled`, 기본 꺼짐). 꺼져 있으면 `GET /guestbook/latest`는 `enabled: false`와 빈 목록을 돌려주고, 게임은 위젯·창을 숨긴다.
 
 ---
 
@@ -1174,7 +1177,7 @@ s.length(); // 여기서 예외",
 | Method | URL | 설명 | 요청 본문 / 비고 |
 | --- | --- | --- | --- |
 | GET | `/admin/layers` | 레이어 전체 목록 | 순서대로. 항목: `layerId`, `name`, `description`, `sortOrder`, `operationCount` |
-| POST | `/admin/layers` | 레이어 등록 (`201`) | `name`(1~100자), `description`, `sortOrder`(0 이상, 튜토리얼 = 0). 이름·순서가 겹치면 `409` |
+| POST | `/admin/layers` | 레이어 등록 (`201`) | `name`(1~100자), `description`, `sortOrder`(-999 이상, 튜토리얼 = 0, **음수면 비공개**). 이름·순서가 겹치면 `409` |
 | PUT | `/admin/layers/{id}` | 레이어 수정 | 등록과 같음. 순서를 바꾸면 해금 순서도 바뀐다 |
 | DELETE | `/admin/layers/{id}` | 레이어 삭제 (`204`) | 작전이 남아 있으면 `409 LAYER_HAS_OPERATIONS` |
 | GET | `/admin/word-lists` | 단어 목록 전체 | ID 순. 항목: `wordListId`, `name`, `description`, `words` |
@@ -1190,6 +1193,8 @@ s.length(); // 여기서 예외",
 | PUT | `/admin/operations/{id}` | 작전 수정 | 등록과 같음. `layerId`를 바꾸면 다른 레이어로 옮긴다 |
 | GET | `/admin/guestbook?q=&page=&size=` | 방명록 목록 | 최신순, 이름·내용 검색, size 1~50 |
 | DELETE | `/admin/guestbook/{id}` | 방명록 글 삭제 | 부적절한 글. 없으면 `404` |
+| GET | `/admin/guestbook/settings` | 방명록 켜짐 여부 | `{ "enabled": false }` |
+| PUT | `/admin/guestbook/settings` | 방명록 켜기/끄기 | `{ "enabled": true }`. 전시할 때만 켠다. 게임은 10초 안에 반영 |
 | DELETE | `/admin/events/{stageId}/records/{recordId}` | 이벤트 기록 하나 삭제 | 부적절한 이름 등. 다른 스테이지의 기록이면 `404` |
 | DELETE | `/admin/events/{stageId}/records` | 이벤트 기록 전부 삭제 | 전시 시작 전 초기화. 응답 `{ "deleted": n }` |
 | PUT | `/admin/operations/{id}/board` | 스테이지 선택 화면 배치 | `{ "positions": [{ "stageId": 10, "x": 0.2, "y": 0.5 }] }`. x·y는 0~1(노드 가운데, 왼쪽 위 기준), 둘 다 `null`이면 자동 배치. 목록에 없는 스테이지는 그대로. 다른 작전의 스테이지·중복·한쪽만 `null`이면 `400 INVALID_INPUT`. 응답은 위 목록의 작전 한 개 |

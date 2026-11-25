@@ -129,4 +129,9 @@ public class Stage {
     public boolean isOfficial() {
         return creator == null;
     }
+
+    /** 비공개 레이어(sortOrder 음수)에 속한 공식 스테이지인지. 게임에서는 없는 스테이지로 다룬다 */
+    public boolean isHidden() {
+        return isOfficial() && operation != null && operation.getLayer() != null && operation.getLayer().isHidden();
+    }
 }

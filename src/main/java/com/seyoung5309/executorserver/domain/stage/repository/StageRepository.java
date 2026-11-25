@@ -23,6 +23,14 @@ public interface StageRepository extends JpaRepository<Stage, Long> {
             """)
     List<Stage> findAllOfficialInPlayOrder();
 
+    /** 게임에 보이는 공식 스테이지만 (비공개 레이어 = sortOrder 음수 제외), 플레이 순서대로. 게임의 해금 계산 기준 */
+    @Query("""
+            select s from Stage s join fetch s.operation o join fetch o.layer l
+            where s.creator is null and l.sortOrder >= 0
+            order by l.sortOrder asc, o.sortOrder asc, s.stageNo asc
+            """)
+    List<Stage> findAllOfficialVisibleInPlayOrder();
+
     /** 공개된 사용자 맵 (정렬은 Pageable로) */
     @Query(value = "select s from Stage s where s.creator is not null and s.isPublic = true",
             countQuery = "select count(s) from Stage s where s.creator is not null and s.isPublic = true")

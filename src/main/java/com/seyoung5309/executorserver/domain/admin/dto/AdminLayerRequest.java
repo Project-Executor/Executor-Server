@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 /**
  * 레이어 등록·수정 (PUT이므로 모든 값을 보낸다).
  *
- * @param sortOrder 표시·플레이 순서. 튜토리얼 레이어가 0이고 레이어끼리 겹칠 수 없다
+ * @param sortOrder 표시·플레이 순서. 튜토리얼 레이어가 0이고 레이어끼리 겹칠 수 없다. 음수(-1, -2, ...)면 비공개 레이어
  */
 public record AdminLayerRequest(
         @NotBlank(message = "name을 입력해 주세요.")
@@ -19,7 +19,7 @@ public record AdminLayerRequest(
         String description,
 
         @NotNull(message = "sortOrder를 입력해 주세요.")
-        @Min(value = 0, message = "sortOrder는 0 이상이어야 합니다.")
+        @Min(value = -999, message = "sortOrder는 -999 이상이어야 합니다.")
         Integer sortOrder
 ) {
 }

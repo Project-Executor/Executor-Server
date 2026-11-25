@@ -10,7 +10,7 @@ import java.util.List;
  *
  * @param stageType EVENT_TURNS(score = 턴, 적을수록 위) / EVENT_TYPING(score = 친 단어 수, 많을수록 위)
  * @param total     올라온 기록 수
- * @param rankings  위에서부터 (같은 점수는 같은 순위, 먼저 올린 기록이 위)
+ * @param rankings  위에서부터 (같은 점수는 같은 순위, 이름순)
  */
 public record EventRankingResponse(
         Long stageId,

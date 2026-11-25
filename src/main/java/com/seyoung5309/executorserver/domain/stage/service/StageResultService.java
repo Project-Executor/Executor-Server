@@ -153,7 +153,7 @@ public class StageResultService {
         if (!stage.isOfficial()) {
             return null;
         }
-        List<Stage> ordered = stageRepository.findAllOfficialInPlayOrder();
+        List<Stage> ordered = stageRepository.findAllOfficialVisibleInPlayOrder();
         for (int i = 0; i < ordered.size() - 1; i++) {
             if (ordered.get(i).getId().equals(stage.getId())) {
                 return ordered.get(i + 1).getId();

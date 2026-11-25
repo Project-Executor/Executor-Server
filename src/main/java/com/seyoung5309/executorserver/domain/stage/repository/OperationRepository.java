@@ -12,6 +12,10 @@ public interface OperationRepository extends JpaRepository<Operation, Long> {
     @Query("select o from Operation o join fetch o.layer l order by l.sortOrder asc, o.sortOrder asc")
     List<Operation> findAllInPlayOrder();
 
+    /** 게임에 보이는 작전만 (비공개 레이어 = sortOrder 음수 제외), 플레이 순서대로 */
+    @Query("select o from Operation o join fetch o.layer l where l.sortOrder >= 0 order by l.sortOrder asc, o.sortOrder asc")
+    List<Operation> findAllVisibleInPlayOrder();
+
     boolean existsByNameAndIdNot(String name, Long id);
 
     /** 같은 레이어 안에서 순서가 겹치는지 */

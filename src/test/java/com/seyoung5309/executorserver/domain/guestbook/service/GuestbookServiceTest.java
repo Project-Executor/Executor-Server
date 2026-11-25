@@ -4,6 +4,7 @@ import com.seyoung5309.executorserver.domain.guestbook.dto.GuestbookRequest;
 import com.seyoung5309.executorserver.domain.guestbook.entity.GuestbookEntry;
 import com.seyoung5309.executorserver.domain.guestbook.repository.GuestbookRepository;
 import com.seyoung5309.executorserver.domain.profile.repository.UserRepository;
+import com.seyoung5309.executorserver.domain.setting.service.AppSettingService;
 import com.seyoung5309.executorserver.global.exception.BusinessException;
 import com.seyoung5309.executorserver.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,13 +33,16 @@ class GuestbookServiceTest {
 
     private GuestbookRepository repository;
     private UserRepository userRepository;
+    private AppSettingService settings;
     private GuestbookService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(GuestbookRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new GuestbookService(repository, userRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        settings = mock(AppSettingService.class);
+        when(settings.isOn(AppSettingService.GUESTBOOK_ENABLED)).thenReturn(true);
+        service = new GuestbookService(repository, userRepository, settings, Clock.fixed(NOW, ZoneOffset.UTC));
         when(repository.save(any())).thenAnswer(inv -> {
             GuestbookEntry e = inv.getArgument(0);
             ReflectionTestUtils.setField(e, "id", 7L);
@@ -89,6 +93,17 @@ class GuestbookServiceTest {
     void 같은_기기는_5초에_한_번() {
         when(repository.existsByDeviceIdAndCreatedAtGreaterThanEqual("pc-1", NOW.minusSeconds(5))).thenReturn(true);
         assertErrorCode(() -> service.post(null, new GuestbookRequest("이밤", "안녕", "pc-1")), ErrorCode.MESSAGE_SPAM);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void 꺼져_있으면_숨기고_남길_수_없다() {
+        when(settings.isOn(AppSettingService.GUESTBOOK_ENABLED)).thenReturn(false);
+        var latest = service.latest(30);
+        assertThat(latest.enabled()).isFalse();
+        assertThat(latest.entries()).isEmpty();
+        verify(repository, never()).findLatest(any());
+        assertErrorCode(() -> service.post(null, new GuestbookRequest("이밤", "안녕", "pc-1")), ErrorCode.GUESTBOOK_CLOSED);
         verify(repository, never()).save(any());
     }
 

@@ -41,11 +41,12 @@ public class StageService {
 
     /**
      * 공식 작전·스테이지 목록과 내 진행도(해금, 클리어, 별, 최고 기록). 플레이 순서(레이어 -> 작전)대로이고,
+     * 비공개 레이어(sortOrder 음수)는 뺀다.
      * 작전마다 소속 레이어를 담는다. 스테이지가 없는 작전도 빈 목록으로 포함한다.
      */
     public List<OperationResponse> getOperations(Long userId) {
-        List<Operation> operations = operationRepository.findAllInPlayOrder();
-        List<Stage> stages = stageRepository.findAllOfficialInPlayOrder();
+        List<Operation> operations = operationRepository.findAllVisibleInPlayOrder();
+        List<Stage> stages = stageRepository.findAllOfficialVisibleInPlayOrder();
         Map<Long, UserStage> records = userStageRepository.findAllOfficialByUserId(userId).stream()
                 .collect(Collectors.toMap(record -> record.getStage().getId(), Function.identity()));
 
@@ -62,7 +63,7 @@ public class StageService {
      * 해금은 게임이 PC에 저장한 게스트 기록으로 정한다.
      */
     public List<OperationResponse> getGuestOperations() {
-        return group(operationRepository.findAllInPlayOrder(), stageRepository.findAllOfficialInPlayOrder(),
+        return group(operationRepository.findAllVisibleInPlayOrder(), stageRepository.findAllOfficialVisibleInPlayOrder(),
                 Map.of(), stageId -> true);
     }
 
@@ -112,7 +113,7 @@ public class StageService {
      */
     public StageDetailResponse getGuestStageDetail(Long stageId) {
         Stage stage = stageRepository.findById(stageId)
-                .filter(Stage::isOfficial)
+                .filter(s -> s.isOfficial() && !s.isHidden())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "스테이지를 찾을 수 없습니다."));
         return new StageDetailResponse(
                 stage.getId(),
